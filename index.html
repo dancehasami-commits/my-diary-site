@@ -82,9 +82,55 @@ header {
   text-align: right;
 }
 
-/* ボタン */
-button {
-  margin-top: 5px;
+/* =========================
+   🌟 ボタンUI
+========================= */
+
+.post button {
+  margin-top: 8px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* ❤️ いいねボタン（つやっと青） */
+.post button:first-of-type {
+  background: linear-gradient(180deg, #4da3ff 0%, #0b63d1 100%);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #084a9c, 0 6px 12px rgba(0,0,0,0.15);
+  transition: all 0.15s ease;
+}
+
+.post button:first-of-type:hover {
+  transform: translateY(-2px);
+}
+
+.post button:first-of-type:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #084a9c;
+}
+
+/* 🗑 削除ボタン */
+.post button:last-of-type {
+  background: #444;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* ボタン間隔 */
+.post button + button {
+  margin-left: 10px;
+}
+
+/* 投稿ボタン（既存） */
+#postBtn {
+  margin-top: 10px;
 }
 
 /* スマホ */
@@ -117,12 +163,6 @@ button {
 
   <div class="main">
 
-    <!-- ⭐ 管理者ボタン -->
-    <button id="adminToggleBtn">管理者モード: OFF</button>
-
-    <br><br>
-
-    <!-- 投稿 -->
     <input type="text" id="name" placeholder="名前">
     <textarea id="text" placeholder="日記を書く"></textarea>
     <input type="file" id="image">
@@ -152,7 +192,6 @@ import {
   increment
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyATX-E11u6N_Z4YI_vxW4fsASJeuDHkrX4",
   authDomain: "arigatou-25a5b.firebaseapp.com",
@@ -167,41 +206,17 @@ const db = getFirestore(app);
 
 const list = document.getElementById("list");
 
-/* =========================
-   ユーザーID
-========================= */
+/* ユーザーID */
 let userId = localStorage.getItem("userId");
 if (!userId) {
   userId = crypto.randomUUID();
   localStorage.setItem("userId", userId);
 }
 
-/* =========================
-   管理者モード
-========================= */
-const adminBtn = document.getElementById("adminToggleBtn");
+/* 管理者ID */
+const ADMIN_ID = "taro-goo-1000";
 
-function getAdmin() {
-  return localStorage.getItem("isAdmin") === "true";
-}
-
-function updateAdminBtn() {
-  adminBtn.textContent = getAdmin()
-    ? "管理者モード: ON"
-    : "管理者モード: OFF";
-}
-
-updateAdminBtn();
-
-adminBtn.addEventListener("click", () => {
-  const now = getAdmin();
-  localStorage.setItem("isAdmin", !now);
-  updateAdminBtn();
-});
-
-/* =========================
-   投稿
-========================= */
+/* 投稿 */
 document.getElementById("postBtn").addEventListener("click", async () => {
   const name = document.getElementById("name").value || "名前無し";
   const text = document.getElementById("text").value;
@@ -236,11 +251,10 @@ function toBase64(file) {
   });
 }
 
-/* =========================
-   表示（リアルタイム）
-========================= */
+/* 表示 */
 onSnapshot(collection(db, "posts"), (snap) => {
-  const posts = [];
+
+  let posts = [];
 
   snap.forEach(d => {
     posts.push({ id: d.id, ...d.data() });
@@ -253,17 +267,15 @@ onSnapshot(collection(db, "posts"), (snap) => {
   posts.forEach(p => {
 
     const isMine = p.userId === userId;
-    const isAdmin = getAdmin();
+    const isAdmin = userId === ADMIN_ID;
     const canDelete = isMine || isAdmin;
 
     const div = document.createElement("div");
-
     div.className = "post";
 
     div.innerHTML = `
       ${p.image ? `<img src="${p.image}">` : ""}
       <p>${p.text}</p>
-
       <div class="meta">${p.name}</div>
 
       <button onclick="like('${p.id}')">❤️ ${p.likes}</button>
@@ -275,18 +287,14 @@ onSnapshot(collection(db, "posts"), (snap) => {
   });
 });
 
-/* =========================
-   いいね
-========================= */
+/* いいね */
 window.like = async (id) => {
   await updateDoc(doc(db, "posts", id), {
     likes: increment(1)
   });
 };
 
-/* =========================
-   削除
-========================= */
+/* 削除 */
 window.del = async (id) => {
   if (!confirm("削除しますか？")) return;
   await deleteDoc(doc(db, "posts", id));
