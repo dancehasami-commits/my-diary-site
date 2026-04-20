@@ -64,6 +64,17 @@ header {
   box-sizing: border-box;
 }
 
+/* 入力エリア */
+.form-area {
+  padding-bottom: 20px;
+}
+
+/* 区切り線 */
+.separator {
+  border-top: 2px solid #ddd;
+  margin: 20px 0;
+}
+
 /* 投稿 */
 .post {
   margin-bottom: 20px;
@@ -142,11 +153,23 @@ textarea, input {
 
   <div class="main">
 
-    <input type="text" id="name" placeholder="名前（空欄OK）">
-    <input type="file" id="image">
-    <textarea id="text" placeholder="日記を書く"></textarea>
-    <button id="postBtn">投稿</button>
+    <!-- ================= 入力 ================= -->
+    <div class="form-area">
 
+      <input type="text" id="name" placeholder="名前">
+
+      <textarea id="text" placeholder="日記を書く"></textarea>
+
+      <input type="file" id="image">
+
+      <button id="postBtn">投稿</button>
+
+    </div>
+
+    <!-- 区切り線 -->
+    <div class="separator"></div>
+
+    <!-- 投稿一覧 -->
     <section id="list"></section>
 
   </div>
@@ -170,7 +193,6 @@ import {
   increment
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* Firebase */
 const firebaseConfig = {
   apiKey: "AIzaSyATX-E11u6N_Z4YI_vxW4fsASJeuDHkrX4",
   authDomain: "arigatou-25a5b.firebaseapp.com",
@@ -187,14 +209,16 @@ const db = getFirestore(app);
 const list = document.getElementById("list");
 
 /* =========================
-   投稿（画像圧縮つき）
+   投稿（リセット付き）
 ========================= */
 async function post() {
-  const text = document.getElementById("text").value;
-  const nameInput = document.getElementById("name").value;
-  const file = document.getElementById("image").files[0];
+  const nameInput = document.getElementById("name");
+  const textInput = document.getElementById("text");
+  const fileInput = document.getElementById("image");
 
-  const name = nameInput.trim() === "" ? "名前無し" : nameInput;
+  const name = nameInput.value.trim() === "" ? "名前無し" : nameInput.value;
+  const text = textInput.value;
+  const file = fileInput.files[0];
 
   const now = new Date();
   const time = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -206,22 +230,26 @@ async function post() {
   }
 
   await addDoc(collection(db, "posts"), {
-    text,
     name,
+    text,
     time,
     image: imageData,
     likes: 0,
     createdAt: Date.now()
   });
 
+  /* ⭐ 投稿後リセット */
+  nameInput.value = "";
+  textInput.value = "";
+  fileInput.value = "";
+
   load();
 }
 
-/* ⭐ ボタン接続 */
 document.getElementById("postBtn").addEventListener("click", post);
 
 /* =========================
-   画像圧縮関数
+   画像圧縮
 ========================= */
 function compressImage(file, maxWidth, quality) {
   return new Promise((resolve) => {
@@ -233,9 +261,9 @@ function compressImage(file, maxWidth, quality) {
       img.onload = function() {
         const canvas = document.createElement("canvas");
 
-        const scale = maxWidth / img.width;
-        const width = Math.min(img.width, maxWidth);
-        const height = img.height * Math.min(scale, 1);
+        const scale = Math.min(maxWidth / img.width, 1);
+        const width = img.width * scale;
+        const height = img.height * scale;
 
         canvas.width = width;
         canvas.height = height;
@@ -243,8 +271,7 @@ function compressImage(file, maxWidth, quality) {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
 
-        const compressed = canvas.toDataURL("image/jpeg", quality);
-        resolve(compressed);
+        resolve(canvas.toDataURL("image/jpeg", quality));
       };
 
       img.src = e.target.result;
@@ -255,7 +282,7 @@ function compressImage(file, maxWidth, quality) {
 }
 
 /* =========================
-   表示（最新順）
+   表示
 ========================= */
 async function load() {
   list.innerHTML = "";
@@ -296,16 +323,22 @@ async function load() {
   });
 }
 
-/* 削除 */
+/* =========================
+   削除（確認付き）
+========================= */
 window.del = async function(id) {
+  const ok = confirm("投稿を削除しますか？");
+  if (!ok) return;
+
   await deleteDoc(doc(db, "posts", id));
   load();
 };
 
-/* いいね */
+/* =========================
+   いいね
+========================= */
 window.like = async function(id) {
   const key = "liked_" + id;
-
   if (localStorage.getItem(key)) return;
 
   await updateDoc(doc(db, "posts", id), {
@@ -316,7 +349,9 @@ window.like = async function(id) {
   load();
 };
 
-/* カウンター */
+/* =========================
+   カウンター
+========================= */
 const counterRef = doc(db, "counter", "visit");
 
 async function increaseVisit() {
