@@ -3,181 +3,131 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>写真と日記</title>
+<title>共有日記サイト</title>
 
 <style>
-body {
-  font-family: sans-serif;
-  margin: 0;
-  background: #f5f5f5;
-  color: #333;
-}
+body { font-family:sans-serif; margin:0; background:#f5f5f5; }
+header { background:#111; color:#fff; padding:30px; text-align:center; }
 
-header {
-  background: #111;
-  color: #fff;
-  padding: 30px;
-  text-align: center;
-}
-
-/* バナー */
 .banner {
-  width: 100%;
-  height: 200px;
-  background-image: url("banner1.png");
-  background-size: cover;
-  background-position: center;
+  width:100%;
+  height:200px;
+  background-image:url("banner1.png");
+  background-size:cover;
 }
 
-/* 電光掲示板 */
 .marquee {
-  width: 100%;
-  overflow: hidden;
-  background: black;
-  color: lime;
-  font-weight: bold;
-  padding: 10px 0;
+  background:black;
+  color:lime;
+  overflow:hidden;
 }
 
 .marquee p {
-  display: inline-block;
-  white-space: nowrap;
-  padding-left: 100%;
-  animation: marquee 15s linear infinite;
+  white-space:nowrap;
+  display:inline-block;
+  padding-left:100%;
+  animation:scroll 15s linear infinite;
 }
 
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-100%); }
+@keyframes scroll {
+  0% { transform:translateX(0); }
+  100% { transform:translateX(-100%); }
 }
 
 section {
-  max-width: 800px;
-  margin: 20px auto;
-  padding: 20px;
-  background: #fff;
-  border-radius: 8px;
+  max-width:800px;
+  margin:20px auto;
+  background:white;
+  padding:20px;
 }
 
-input, textarea {
-  width: 100%;
-  margin-bottom: 10px;
-  padding: 10px;
-}
-
-button {
-  padding: 8px 14px;
-  background: #111;
-  color: #fff;
-  border: none;
-}
-
-.delete-btn {
-  background: red;
-}
-
-.entry {
-  margin-top: 20px;
-  border-top: 1px solid #ddd;
-  padding-top: 20px;
-}
-
-.entry img {
-  width: 100%;
-  margin-bottom: 10px;
-}
-
-.date {
-  font-weight: bold;
-}
+.entry img { width:100%; }
+.delete-btn { background:red; color:white; }
 </style>
 </head>
 
 <body>
 
 <header>
-  <h1>写真と日記</h1>
-  <p>投稿・削除できる日記サイト</p>
+<h1>みんなの日記</h1>
 </header>
 
-<!-- バナー -->
 <div class="banner"></div>
 
-<!-- 電光掲示板 -->
 <div class="marquee">
-  <p>☆私の家へようこそ。　　☆更新されるのでよくチェックしてください。　　☆毎日毎日</p>
+<p>☆私の家へようこそ　☆みんなで日記共有　☆毎日チェック！</p>
 </div>
 
 <section>
-  <h2>投稿する</h2>
-  <input type="file" id="imageInput">
-  <textarea id="textInput" placeholder="日記を書く..."></textarea>
-  <button onclick="addEntry()">投稿</button>
+<input type="file" id="image">
+<textarea id="text"></textarea>
+<button onclick="post()">投稿</button>
 </section>
 
-<section id="entries"></section>
+<section id="list"></section>
 
-<script>
-const entriesContainer = document.getElementById('entries');
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-function loadEntries() {
-  const entries = JSON.parse(localStorage.getItem('entries') || '[]');
-  entriesContainer.innerHTML = '';
-  entries.slice().reverse().forEach((entry, index) => {
-    const realIndex = entries.length - 1 - index;
-    const div = document.createElement('div');
-    div.className = 'entry';
+/* ✅ あなたの設定（差し替え済み） */
+const firebaseConfig = {
+  apiKey: "AIzaSyATX-E11u6N_Z4YI_vxW4fsASJeuDHkrX4",
+  authDomain: "arigatou-25a5b.firebaseapp.com",
+  projectId: "arigatou-25a5b",
+  storageBucket: "arigatou-25a5b.firebasestorage.app",
+  messagingSenderId: "514833999618",
+  appId: "1:514833999618:web:d44507b9a99d76d2fd841b",
+  measurementId: "G-ZVJJKMMYKQ"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const list = document.getElementById("list");
+
+async function load() {
+  list.innerHTML = "";
+  const querySnapshot = await getDocs(collection(db, "posts"));
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    const div = document.createElement("div");
     div.innerHTML = `
-      <div class="date">${entry.date}</div>
-      ${entry.image ? `<img src="${entry.image}">` : ''}
-      <p>${entry.text}</p>
-      <button class="delete-btn" onclick="deleteEntry(${realIndex})">削除</button>
+      <p>${data.text}</p>
+      ${data.image ? `<img src="${data.image}">` : ""}
+      <button onclick="del('${docSnap.id}')">削除</button>
+      <hr>
     `;
-    entriesContainer.appendChild(div);
+    list.appendChild(div);
   });
 }
 
-function addEntry() {
-  const file = document.getElementById('imageInput').files[0];
-  const text = document.getElementById('textInput').value;
-  const reader = new FileReader();
+window.post = async function() {
+  const text = document.getElementById("text").value;
+  const file = document.getElementById("image").files[0];
 
-  reader.onload = function(e) {
-    const entries = JSON.parse(localStorage.getItem('entries') || '[]');
-    entries.push({
-      date: new Date().toLocaleString(),
-      text: text,
-      image: e.target.result
-    });
-    localStorage.setItem('entries', JSON.stringify(entries));
-    loadEntries();
-  };
+  let imageData = "";
 
   if (file) {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      imageData = e.target.result;
+      await addDoc(collection(db, "posts"), { text, image: imageData });
+      load();
+    };
     reader.readAsDataURL(file);
   } else {
-    const entries = JSON.parse(localStorage.getItem('entries') || '[]');
-    entries.push({
-      date: new Date().toLocaleString(),
-      text: text,
-      image: null
-    });
-    localStorage.setItem('entries', JSON.stringify(entries));
-    loadEntries();
+    await addDoc(collection(db, "posts"), { text, image: "" });
+    load();
   }
+};
 
-  document.getElementById('textInput').value = '';
-  document.getElementById('imageInput').value = '';
-}
+window.del = async function(id) {
+  await deleteDoc(doc(db, "posts", id));
+  load();
+};
 
-function deleteEntry(index) {
-  const entries = JSON.parse(localStorage.getItem('entries') || '[]');
-  entries.splice(index, 1);
-  localStorage.setItem('entries', JSON.stringify(entries));
-  loadEntries();
-}
-
-loadEntries();
+load();
 </script>
 
 </body>
