@@ -47,7 +47,7 @@ header {
   100% { transform: translateX(-100%); }
 }
 
-/* ⭐ レイアウト */
+/* レイアウト */
 .container {
   display: flex;
   width: 100%;
@@ -64,7 +64,7 @@ header {
   box-sizing: border-box;
 }
 
-/* 投稿カード */
+/* 投稿 */
 .post {
   margin-bottom: 20px;
   padding-bottom: 10px;
@@ -75,9 +75,18 @@ header {
   width: 100%;
   height: auto;
   display: block;
+  margin-bottom: 10px;
 }
 
-/* いいねボタン */
+/* ⭐ 名前＋時間（右揃え） */
+.meta {
+  font-size: 12px;
+  color: #666;
+  text-align: right;   /* ←ここが変更点 */
+  margin-top: 5px;
+}
+
+/* いいね */
 .like-btn {
   background: none;
   border: 1px solid #333;
@@ -92,14 +101,12 @@ header {
 }
 
 /* 入力 */
-textarea {
+textarea, input {
   width: 100%;
-  height: 80px;
+  margin-bottom: 5px;
 }
 
-/* =========================
-   📱 スマホ対応
-========================= */
+/* スマホ対応 */
 @media screen and (max-width: 768px) {
   .container {
     flex-direction: column;
@@ -110,7 +117,6 @@ textarea {
   }
 
   .main {
-    flex: none;
     width: 100%;
   }
 }
@@ -125,7 +131,6 @@ textarea {
 
 <div class="banner"></div>
 
-<!-- 電光掲示板 -->
 <div class="marquee">
   <p>
     ☆私の家へようこそ　☆みんなで日記共有　☆毎日チェック！　
@@ -139,8 +144,9 @@ textarea {
 
   <div class="main">
 
+    <input type="text" id="name" placeholder="名前（空欄OK）">
     <input type="file" id="image">
-    <textarea id="text"></textarea>
+    <textarea id="text" placeholder="日記を書く"></textarea>
     <button onclick="post()">投稿</button>
 
     <section id="list"></section>
@@ -181,42 +187,16 @@ const db = getFirestore(app);
 
 const list = document.getElementById("list");
 
-/* =========================
-   投稿読み込み
-========================= */
-async function load() {
-  list.innerHTML = "";
-
-  const snap = await getDocs(collection(db, "posts"));
-
-  snap.forEach((docSnap) => {
-    const data = docSnap.data();
-
-    const likedKey = "liked_" + docSnap.id;
-    const alreadyLiked = localStorage.getItem(likedKey);
-
-    const div = document.createElement("div");
-    div.className = "post";
-
-    div.innerHTML = `
-      <p>${data.text}</p>
-      ${data.image ? `<img src="${data.image}">` : ""}
-
-      <button class="like-btn ${alreadyLiked ? "liked" : ""}"
-        onclick="like('${docSnap.id}')">
-        ❤️ いいね <span id="like-${docSnap.id}">${data.likes || 0}</span>
-      </button>
-
-      <button onclick="del('${docSnap.id}')">削除</button>
-    `;
-
-    list.appendChild(div);
-  });
-}
-
+/* 投稿 */
 window.post = async function() {
   const text = document.getElementById("text").value;
+  const nameInput = document.getElementById("name").value;
   const file = document.getElementById("image").files[0];
+
+  const name = nameInput.trim() === "" ? "名前無し" : nameInput;
+
+  const now = new Date();
+  const time = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
   if (file) {
     const reader = new FileReader();
@@ -224,8 +204,11 @@ window.post = async function() {
     reader.onload = async function(e) {
       await addDoc(collection(db, "posts"), {
         text,
+        name,
+        time,
         image: e.target.result,
-        likes: 0
+        likes: 0,
+        createdAt: Date.now()
       });
       load();
     };
@@ -234,27 +217,67 @@ window.post = async function() {
   } else {
     await addDoc(collection(db, "posts"), {
       text,
+      name,
+      time,
       image: "",
-      likes: 0
+      likes: 0,
+      createdAt: Date.now()
     });
     load();
   }
 };
+
+/* 表示 */
+async function load() {
+  list.innerHTML = "";
+
+  const snap = await getDocs(collection(db, "posts"));
+
+  const posts = [];
+
+  snap.forEach(docSnap => {
+    posts.push({ id: docSnap.id, ...docSnap.data() });
+  });
+
+  posts.sort((a, b) => b.createdAt - a.createdAt);
+
+  posts.forEach(data => {
+    const likedKey = "liked_" + data.id;
+    const alreadyLiked = localStorage.getItem(likedKey);
+
+    const div = document.createElement("div");
+    div.className = "post";
+
+    div.innerHTML = `
+      ${data.image ? `<img src="${data.image}">` : ""}
+      <p>${data.text}</p>
+
+      <div class="meta">
+        ${data.name}｜${data.time}
+      </div>
+
+      <button class="like-btn ${alreadyLiked ? "liked" : ""}"
+        onclick="like('${data.id}')">
+        ❤️ いいね ${data.likes || 0}
+      </button>
+
+      <button onclick="del('${data.id}')">削除</button>
+    `;
+
+    list.appendChild(div);
+  });
+}
 
 window.del = async function(id) {
   await deleteDoc(doc(db, "posts", id));
   load();
 };
 
-/* =========================
-   ❤️ いいね（1回制限）
-========================= */
+/* いいね */
 window.like = async function(id) {
   const key = "liked_" + id;
 
-  if (localStorage.getItem(key)) {
-    return; // もう押してる
-  }
+  if (localStorage.getItem(key)) return;
 
   const ref = doc(db, "posts", id);
 
@@ -266,9 +289,7 @@ window.like = async function(id) {
   load();
 };
 
-/* =========================
-   👀 カウンター
-========================= */
+/* カウンター */
 const counterRef = doc(db, "counter", "visit");
 
 async function increaseVisit() {
@@ -298,7 +319,6 @@ onSnapshot(counterRef, (snap) => {
     String(data.count).padStart(6, "0");
 });
 
-/* 初期 */
 load();
 </script>
 
