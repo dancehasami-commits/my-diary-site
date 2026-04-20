@@ -1,20 +1,297 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>共有日記サイト</title>
+
+<style>
+body {
+  font-family: sans-serif;
+  margin: 0;
+  background: #f5f5f5;
+}
+
+header {
+  background: #111;
+  color: #fff;
+  padding: 30px;
+  text-align: center;
+}
+
+.banner {
+  width: 100%;
+  height: 200px;
+  background-image: url("banner1.png");
+  background-size: cover;
+}
+
+/* 電光掲示板 */
+.marquee {
+  background: black;
+  color: lime;
+  overflow: hidden;
+  font-family: monospace;
+  text-shadow: 0 0 8px lime;
+}
+
+.marquee p {
+  white-space: nowrap;
+  display: inline-block;
+  padding-left: 100%;
+  animation: scroll 15s linear infinite;
+}
+
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* レイアウト */
+.container {
+  display: flex;
+  width: 100%;
+}
+
+.side { flex: 1.5; }
+
+.main {
+  flex: 7;
+  background: white;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* 投稿 */
+.post {
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.post img {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.meta {
+  font-size: 12px;
+  color: #666;
+  text-align: right;
+}
+
+/* ボタン */
+button {
+  margin-top: 5px;
+}
+
+/* スマホ */
+@media screen and (max-width: 768px) {
+  .container {
+    flex-direction: column;
+  }
+  .side {
+    display: none;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>みんなの日記</h1>
+</header>
+
+<div class="banner"></div>
+
+<div class="marquee">
+  <p>☆共有日記サイト　☆リアルタイム更新中</p>
+</div>
+
+<div class="container">
+
+  <div class="side"></div>
+
+  <div class="main">
+
+    <!-- ⭐ 管理者ボタン -->
+    <button id="adminToggleBtn">管理者モード: OFF</button>
+
+    <br><br>
+
+    <!-- 投稿 -->
+    <input type="text" id="name" placeholder="名前">
+    <textarea id="text" placeholder="日記を書く"></textarea>
+    <input type="file" id="image">
+
+    <button id="postBtn">投稿</button>
+
+    <hr>
+
+    <section id="list"></section>
+
+  </div>
+
+  <div class="side"></div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  updateDoc,
+  increment
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* Firebase */
+const firebaseConfig = {
+  apiKey: "AIzaSyATX-E11u6N_Z4YI_vxW4fsASJeuDHkrX4",
+  authDomain: "arigatou-25a5b.firebaseapp.com",
+  projectId: "arigatou-25a5b",
+  storageBucket: "arigatou-25a5b.firebasestorage.app",
+  messagingSenderId: "514833999618",
+  appId: "1:514833999618:web:d44507b9a99d76d2fd841b"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const list = document.getElementById("list");
+
+/* =========================
+   ユーザーID
+========================= */
+let userId = localStorage.getItem("userId");
+if (!userId) {
+  userId = crypto.randomUUID();
+  localStorage.setItem("userId", userId);
+}
+
+/* =========================
+   管理者モード
+========================= */
 const adminBtn = document.getElementById("adminToggleBtn");
 
-// 状態読み込み
-let isAdmin = localStorage.getItem("isAdmin") === "true";
+function getAdmin() {
+  return localStorage.getItem("isAdmin") === "true";
+}
 
-// 表示更新
 function updateAdminBtn() {
-  adminBtn.textContent = isAdmin
+  adminBtn.textContent = getAdmin()
     ? "管理者モード: ON"
     : "管理者モード: OFF";
 }
 
 updateAdminBtn();
 
-// 切り替え
 adminBtn.addEventListener("click", () => {
-  isAdmin = !isAdmin;
-  localStorage.setItem("isAdmin", isAdmin);
+  const now = getAdmin();
+  localStorage.setItem("isAdmin", !now);
   updateAdminBtn();
 });
+
+/* =========================
+   投稿
+========================= */
+document.getElementById("postBtn").addEventListener("click", async () => {
+  const name = document.getElementById("name").value || "名前無し";
+  const text = document.getElementById("text").value;
+  const file = document.getElementById("image").files[0];
+
+  let image = "";
+
+  if (file) {
+    image = await toBase64(file);
+  }
+
+  await addDoc(collection(db, "posts"), {
+    name,
+    text,
+    image,
+    userId,
+    likes: 0,
+    createdAt: Date.now()
+  });
+
+  document.getElementById("name").value = "";
+  document.getElementById("text").value = "";
+  document.getElementById("image").value = "";
+});
+
+/* 画像変換 */
+function toBase64(file) {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = (e) => resolve(e.target.result);
+    r.readAsDataURL(file);
+  });
+}
+
+/* =========================
+   表示（リアルタイム）
+========================= */
+onSnapshot(collection(db, "posts"), (snap) => {
+  const posts = [];
+
+  snap.forEach(d => {
+    posts.push({ id: d.id, ...d.data() });
+  });
+
+  posts.sort((a, b) => b.createdAt - a.createdAt);
+
+  list.innerHTML = "";
+
+  posts.forEach(p => {
+
+    const isMine = p.userId === userId;
+    const isAdmin = getAdmin();
+    const canDelete = isMine || isAdmin;
+
+    const div = document.createElement("div");
+
+    div.className = "post";
+
+    div.innerHTML = `
+      ${p.image ? `<img src="${p.image}">` : ""}
+      <p>${p.text}</p>
+
+      <div class="meta">${p.name}</div>
+
+      <button onclick="like('${p.id}')">❤️ ${p.likes}</button>
+
+      ${canDelete ? `<button onclick="del('${p.id}')">削除</button>` : ""}
+    `;
+
+    list.appendChild(div);
+  });
+});
+
+/* =========================
+   いいね
+========================= */
+window.like = async (id) => {
+  await updateDoc(doc(db, "posts", id), {
+    likes: increment(1)
+  });
+};
+
+/* =========================
+   削除
+========================= */
+window.del = async (id) => {
+  if (!confirm("削除しますか？")) return;
+  await deleteDoc(doc(db, "posts", id));
+};
+</script>
+
+</body>
+</html>
