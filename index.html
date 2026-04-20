@@ -47,53 +47,57 @@ header {
   100% { transform: translateX(-100%); }
 }
 
-/* =========================
-   📐 PCレイアウト
-========================= */
+/* レイアウト */
 .container {
   display: flex;
   width: 100%;
 }
 
-.side {
-  flex: 1.5;
-}
+.side { flex: 1.5; }
 
 .main {
   flex: 7;
   background: white;
   padding: 20px;
   box-sizing: border-box;
-
-  /* 重要 */
   min-width: 0;
 }
 
-/* =========================
-   📸 画像制御
-========================= */
-.post img {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  display: block;
-
-  object-fit: contain;
-  margin-bottom: 10px;
-}
-
-/* 投稿 */
+/* 投稿カード */
 .post {
   margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 1px solid #ddd;
+
+  /* ←これ重要 */
+  position: relative;
 }
 
-/* メタ */
+.post img {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* 名前 */
 .meta {
   font-size: 12px;
   color: #666;
-  text-align: right;
+}
+
+/* ⏰ 日時（右下固定） */
+.datetime {
+  font-size: 11px;
+  color: #999;
+
+  position: absolute;
+  right: 0;
+  bottom: 5px;
+}
+
+/* ボタン */
+button {
   margin-top: 5px;
 }
 
@@ -104,16 +108,10 @@ textarea, input, select {
   box-sizing: border-box;
 }
 
-/* ボタン */
-button {
-  margin-top: 5px;
-}
-
 /* =========================
-   📱 スマホ完全対応
+   📱 スマホ
 ========================= */
 @media screen and (max-width: 768px) {
-
   .container {
     flex-direction: column;
   }
@@ -126,33 +124,12 @@ button {
     width: 100%;
     flex: none;
     padding: 12px;
-
-    /* はみ出し防止 */
     min-width: 0;
-  }
-
-  .post {
-    width: 100%;
   }
 
   .post img {
     width: 100%;
-    max-width: 100%;
     height: auto;
-    object-fit: contain;
-  }
-
-  input, textarea, select, button {
-    font-size: 16px;
-  }
-
-  button {
-    width: 100%;
-    margin-top: 8px;
-  }
-
-  .marquee {
-    font-size: 12px;
   }
 }
 </style>
@@ -290,6 +267,12 @@ onSnapshot(collection(db, "posts"), (snap) => {
   list.innerHTML = "";
 
   posts.forEach(p => {
+
+    const date = new Date(p.createdAt);
+    const datetime =
+      `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ` +
+      `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+
     const liked = localStorage.getItem("like_" + p.id);
 
     const div = document.createElement("div");
@@ -307,6 +290,8 @@ onSnapshot(collection(db, "posts"), (snap) => {
       </button>
 
       <button onclick="del('${p.id}')">削除</button>
+
+      <div class="datetime">${datetime}</div>
     `;
 
     list.appendChild(div);
