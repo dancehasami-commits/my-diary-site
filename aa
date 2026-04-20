@@ -1,0 +1,88 @@
+<!DOCTYPE html><html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>写真と日記（投稿・削除機能付き）</title>
+  <style>
+    body { font-family: sans-serif; margin:0; background:#f5f5f5; color:#333; }
+    header { background:#111; color:#fff; padding:30px; text-align:center; }
+    section { max-width:800px; margin:20px auto; padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+    input, textarea { width:100%; margin-bottom:10px; padding:10px; border-radius:6px; border:1px solid #ccc; }
+    button { padding:8px 14px; border:none; background:#111; color:#fff; border-radius:6px; cursor:pointer; margin-right:5px; }
+    .delete-btn { background:#c0392b; }
+    .entry { margin-top:20px; border-top:1px solid #ddd; padding-top:20px; }
+    .entry img { width:100%; border-radius:8px; margin-bottom:10px; }
+    .date { font-weight:bold; margin-bottom:10px; }
+  </style>
+</head>
+<body><header>
+  <h1>写真と日記</h1>
+  <p>投稿・削除できる日記サイト</p>
+</header><section>
+  <h2>投稿する</h2>
+  <input type="file" id="imageInput">
+  <textarea id="textInput" placeholder="日記を書く..."></textarea>
+  <button onclick="addEntry()">投稿</button>
+</section><section id="entries"></section><script>
+  const entriesContainer = document.getElementById('entries');
+
+  function loadEntries() {
+    const entries = JSON.parse(localStorage.getItem('entries') || '[]');
+    entriesContainer.innerHTML = '';
+    entries.slice().reverse().forEach((entry, index) => {
+      const realIndex = entries.length - 1 - index;
+      const div = document.createElement('div');
+      div.className = 'entry';
+      div.innerHTML = `
+        <div class="date">${entry.date}</div>
+        ${entry.image ? `<img src="${entry.image}">` : ''}
+        <p>${entry.text}</p>
+        <button class="delete-btn" onclick="deleteEntry(${realIndex})">削除</button>
+      `;
+      entriesContainer.appendChild(div);
+    });
+  }
+
+  function addEntry() {
+    const file = document.getElementById('imageInput').files[0];
+    const text = document.getElementById('textInput').value;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const entries = JSON.parse(localStorage.getItem('entries') || '[]');
+      entries.push({
+        date: new Date().toLocaleString(),
+        text: text,
+        image: e.target.result
+      });
+      localStorage.setItem('entries', JSON.stringify(entries));
+      loadEntries();
+    };
+
+    if (file) {
+      reader.readAsDataURL(file);
+    } else {
+      const entries = JSON.parse(localStorage.getItem('entries') || '[]');
+      entries.push({
+        date: new Date().toLocaleString(),
+        text: text,
+        image: null
+      });
+      localStorage.setItem('entries', JSON.stringify(entries));
+      loadEntries();
+    }
+
+    document.getElementById('textInput').value = '';
+    document.getElementById('imageInput').value = '';
+  }
+
+  function deleteEntry(index) {
+    const entries = JSON.parse(localStorage.getItem('entries') || '[]');
+    entries.splice(index, 1);
+    localStorage.setItem('entries', JSON.stringify(entries));
+    loadEntries();
+  }
+
+  loadEntries();
+</script></body>
+</html>
