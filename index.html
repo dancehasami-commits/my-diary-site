@@ -78,7 +78,7 @@ header {
   margin-bottom: 10px;
 }
 
-/* メタ */
+/* メタ（右揃え） */
 .meta {
   font-size: 12px;
   color: #666;
@@ -187,7 +187,7 @@ const db = getFirestore(app);
 const list = document.getElementById("list");
 
 /* =========================
-   投稿（画像バグ修正版）
+   投稿（画像圧縮つき）
 ========================= */
 async function post() {
   const text = document.getElementById("text").value;
@@ -201,13 +201,8 @@ async function post() {
 
   let imageData = "";
 
-  // ⭐ここが安定化ポイント
   if (file) {
-    imageData = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.readAsDataURL(file);
-    });
+    imageData = await compressImage(file, 1200, 0.7);
   }
 
   await addDoc(collection(db, "posts"), {
@@ -222,8 +217,42 @@ async function post() {
   load();
 }
 
-/* ボタン接続（重要） */
+/* ⭐ ボタン接続 */
 document.getElementById("postBtn").addEventListener("click", post);
+
+/* =========================
+   画像圧縮関数
+========================= */
+function compressImage(file, maxWidth, quality) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+      const img = new Image();
+
+      img.onload = function() {
+        const canvas = document.createElement("canvas");
+
+        const scale = maxWidth / img.width;
+        const width = Math.min(img.width, maxWidth);
+        const height = img.height * Math.min(scale, 1);
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressed);
+      };
+
+      img.src = e.target.result;
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
 
 /* =========================
    表示（最新順）
