@@ -100,6 +100,7 @@ header {
   color: white;
 }
 
+/* 入力 */
 textarea, input {
   width: 100%;
   margin-bottom: 5px;
@@ -144,8 +145,6 @@ textarea, input {
     <input type="text" id="name" placeholder="名前（空欄OK）">
     <input type="file" id="image">
     <textarea id="text" placeholder="日記を書く"></textarea>
-
-    <!-- ⭐ onclick廃止 -->
     <button id="postBtn">投稿</button>
 
     <section id="list"></section>
@@ -188,7 +187,7 @@ const db = getFirestore(app);
 const list = document.getElementById("list");
 
 /* =========================
-   投稿
+   投稿（画像バグ修正版）
 ========================= */
 async function post() {
   const text = document.getElementById("text").value;
@@ -200,40 +199,34 @@ async function post() {
   const now = new Date();
   const time = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
+  let imageData = "";
+
+  // ⭐ここが安定化ポイント
   if (file) {
-    const reader = new FileReader();
-
-    reader.onload = async function(e) {
-      await addDoc(collection(db, "posts"), {
-        text,
-        name,
-        time,
-        image: e.target.result,
-        likes: 0,
-        createdAt: Date.now()
-      });
-      load();
-    };
-
-    reader.readAsDataURL(file);
-  } else {
-    await addDoc(collection(db, "posts"), {
-      text,
-      name,
-      time,
-      image: "",
-      likes: 0,
-      createdAt: Date.now()
+    imageData = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.readAsDataURL(file);
     });
-    load();
   }
+
+  await addDoc(collection(db, "posts"), {
+    text,
+    name,
+    time,
+    image: imageData,
+    likes: 0,
+    createdAt: Date.now()
+  });
+
+  load();
 }
 
-/* ⭐ ボタンを確実に紐づけ */
+/* ボタン接続（重要） */
 document.getElementById("postBtn").addEventListener("click", post);
 
 /* =========================
-   表示（最新上）
+   表示（最新順）
 ========================= */
 async function load() {
   list.innerHTML = "";
