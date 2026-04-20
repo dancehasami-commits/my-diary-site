@@ -53,26 +53,13 @@ header {
   width: 100%;
 }
 
-.side {
-  flex: 1.5;
-}
+.side { flex: 1.5; }
 
 .main {
   flex: 7;
   background: white;
   padding: 20px;
   box-sizing: border-box;
-}
-
-/* 入力エリア */
-.form-area {
-  padding-bottom: 20px;
-}
-
-/* 区切り線 */
-.separator {
-  border-top: 2px solid #ddd;
-  margin: 20px 0;
 }
 
 /* 投稿 */
@@ -89,7 +76,7 @@ header {
   margin-bottom: 10px;
 }
 
-/* メタ（右揃え） */
+/* メタ */
 .meta {
   font-size: 12px;
   color: #666;
@@ -97,7 +84,7 @@ header {
   margin-top: 5px;
 }
 
-/* いいね */
+/* ボタン */
 .like-btn {
   background: none;
   border: 1px solid #333;
@@ -112,22 +99,16 @@ header {
 }
 
 /* 入力 */
-textarea, input {
+textarea, input, select {
   width: 100%;
   margin-bottom: 5px;
 }
 
-/* スマホ */
 @media screen and (max-width: 768px) {
   .container {
     flex-direction: column;
   }
-  .side {
-    display: none;
-  }
-  .main {
-    width: 100%;
-  }
+  .side { display: none; }
 }
 </style>
 </head>
@@ -142,8 +123,8 @@ textarea, input {
 
 <div class="marquee">
   <p>
-    ☆私の家へようこそ　☆みんなで日記共有　☆毎日チェック！　
-    　訪問者: <span id="visitCount">000000</span>
+    ☆みんなの日記　☆リアルタイム更新中　
+    訪問者: <span id="visitCount">000000</span>
   </p>
 </div>
 
@@ -153,23 +134,20 @@ textarea, input {
 
   <div class="main">
 
-    <!-- ================= 入力 ================= -->
-    <div class="form-area">
+    <input type="text" id="name" placeholder="名前">
+    <textarea id="text" placeholder="日記を書く"></textarea>
+    <input type="file" id="image">
 
-      <input type="text" id="name" placeholder="名前">
+    <!-- ⭐ 並び替え -->
+    <select id="sort">
+      <option value="new">最新順</option>
+      <option value="like">いいね順</option>
+    </select>
 
-      <textarea id="text" placeholder="日記を書く"></textarea>
+    <button id="postBtn">投稿</button>
 
-      <input type="file" id="image">
+    <div style="border-top:2px solid #ddd; margin:20px 0;"></div>
 
-      <button id="postBtn">投稿</button>
-
-    </div>
-
-    <!-- 区切り線 -->
-    <div class="separator"></div>
-
-    <!-- 投稿一覧 -->
     <section id="list"></section>
 
   </div>
@@ -184,7 +162,6 @@ import {
   getFirestore,
   collection,
   addDoc,
-  getDocs,
   deleteDoc,
   doc,
   runTransaction,
@@ -199,8 +176,7 @@ const firebaseConfig = {
   projectId: "arigatou-25a5b",
   storageBucket: "arigatou-25a5b.firebasestorage.app",
   messagingSenderId: "514833999618",
-  appId: "1:514833999618:web:d44507b9a99d76d2fd841b",
-  measurementId: "G-ZVJJKMMYKQ"
+  appId: "1:514833999618:web:d44507b9a99d76d2fd841b"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -209,144 +185,123 @@ const db = getFirestore(app);
 const list = document.getElementById("list");
 
 /* =========================
-   投稿（リセット付き）
+   投稿
 ========================= */
 async function post() {
-  const nameInput = document.getElementById("name");
-  const textInput = document.getElementById("text");
-  const fileInput = document.getElementById("image");
+  const name = document.getElementById("name").value || "名前無し";
+  const text = document.getElementById("text").value;
+  const file = document.getElementById("image").files[0];
 
-  const name = nameInput.value.trim() === "" ? "名前無し" : nameInput.value;
-  const text = textInput.value;
-  const file = fileInput.files[0];
-
-  const now = new Date();
-  const time = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-
-  let imageData = "";
+  let image = "";
 
   if (file) {
-    imageData = await compressImage(file, 1200, 0.7);
+    image = await compress(file);
   }
 
   await addDoc(collection(db, "posts"), {
     name,
     text,
-    time,
-    image: imageData,
+    image,
     likes: 0,
     createdAt: Date.now()
   });
 
-  /* ⭐ 投稿後リセット */
-  nameInput.value = "";
-  textInput.value = "";
-  fileInput.value = "";
-
-  load();
+  document.getElementById("name").value = "";
+  document.getElementById("text").value = "";
+  document.getElementById("image").value = "";
 }
 
+/* ボタン */
 document.getElementById("postBtn").addEventListener("click", post);
 
 /* =========================
    画像圧縮
 ========================= */
-function compressImage(file, maxWidth, quality) {
+function compress(file) {
   return new Promise((resolve) => {
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
+    const r = new FileReader();
+    r.onload = (e) => {
       const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        const scale = Math.min(1200 / img.width, 1);
+        c.width = img.width * scale;
+        c.height = img.height * scale;
 
-      img.onload = function() {
-        const canvas = document.createElement("canvas");
+        const ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, c.width, c.height);
 
-        const scale = Math.min(maxWidth / img.width, 1);
-        const width = img.width * scale;
-        const height = img.height * scale;
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-
-        resolve(canvas.toDataURL("image/jpeg", quality));
+        resolve(c.toDataURL("image/jpeg", 0.7));
       };
-
       img.src = e.target.result;
     };
-
-    reader.readAsDataURL(file);
+    r.readAsDataURL(file);
   });
 }
 
 /* =========================
-   表示
+   🔴 リアルタイム更新
 ========================= */
-async function load() {
-  list.innerHTML = "";
+onSnapshot(collection(db, "posts"), (snap) => {
+  let posts = [];
 
-  const snap = await getDocs(collection(db, "posts"));
-
-  const posts = [];
-  snap.forEach(docSnap => {
-    posts.push({ id: docSnap.id, ...docSnap.data() });
+  snap.forEach(d => {
+    posts.push({ id: d.id, ...d.data() });
   });
 
-  posts.sort((a, b) => b.createdAt - a.createdAt);
+  const mode = document.getElementById("sort").value;
 
-  posts.forEach(data => {
-    const likedKey = "liked_" + data.id;
-    const alreadyLiked = localStorage.getItem(likedKey);
+  if (mode === "like") {
+    posts.sort((a, b) => b.likes - a.likes);
+  } else {
+    posts.sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  list.innerHTML = "";
+
+  posts.forEach(p => {
+    const liked = localStorage.getItem("like_" + p.id);
 
     const div = document.createElement("div");
-    div.className = "post";
-
     div.innerHTML = `
-      ${data.image ? `<img src="${data.image}">` : ""}
-      <p>${data.text}</p>
-
-      <div class="meta">
-        ${data.name}｜${data.time}
+      ${p.image ? `<img src="${p.image}">` : ""}
+      <p>${p.text}</p>
+      <div style="text-align:right;font-size:12px;color:#666;">
+        ${p.name}
       </div>
 
-      <button class="like-btn ${alreadyLiked ? "liked" : ""}"
-        onclick="like('${data.id}')">
-        ❤️ いいね ${data.likes || 0}
+      <button onclick="like('${p.id}')"
+        style="${liked ? 'background:red;color:white;' : ''}">
+        ❤️ ${p.likes}
       </button>
 
-      <button onclick="del('${data.id}')">削除</button>
+      <button onclick="del('${p.id}')">削除</button>
+      <hr>
     `;
 
     list.appendChild(div);
   });
-}
-
-/* =========================
-   削除（確認付き）
-========================= */
-window.del = async function(id) {
-  const ok = confirm("投稿を削除しますか？");
-  if (!ok) return;
-
-  await deleteDoc(doc(db, "posts", id));
-  load();
-};
+});
 
 /* =========================
    いいね
 ========================= */
-window.like = async function(id) {
-  const key = "liked_" + id;
-  if (localStorage.getItem(key)) return;
+window.like = async (id) => {
+  if (localStorage.getItem("like_" + id)) return;
 
   await updateDoc(doc(db, "posts", id), {
     likes: increment(1)
   });
 
-  localStorage.setItem(key, "1");
-  load();
+  localStorage.setItem("like_" + id, "1");
+};
+
+/* =========================
+   削除
+========================= */
+window.del = async (id) => {
+  if (!confirm("削除する？")) return;
+  await deleteDoc(doc(db, "posts", id));
 };
 
 /* =========================
@@ -354,34 +309,26 @@ window.like = async function(id) {
 ========================= */
 const counterRef = doc(db, "counter", "visit");
 
-async function increaseVisit() {
-  await runTransaction(db, async (transaction) => {
-    const snap = await transaction.get(counterRef);
-
-    if (!snap.exists()) {
-      transaction.set(counterRef, { count: 1 });
+async function visit() {
+  await runTransaction(db, async (tx) => {
+    const s = await tx.get(counterRef);
+    if (!s.exists()) {
+      tx.set(counterRef, { count: 1 });
     } else {
-      transaction.update(counterRef, {
-        count: snap.data().count + 1
-      });
+      tx.update(counterRef, { count: s.data().count + 1 });
     }
   });
 }
 
-if (!sessionStorage.getItem("visited")) {
-  increaseVisit();
-  sessionStorage.setItem("visited", "1");
+if (!sessionStorage.visited) {
+  visit();
+  sessionStorage.visited = "1";
 }
 
-onSnapshot(counterRef, (snap) => {
-  const data = snap.data();
-  if (!data) return;
-
+onSnapshot(counterRef, (s) => {
   document.getElementById("visitCount").textContent =
-    String(data.count).padStart(6, "0");
+    String(s.data()?.count || 0).padStart(6, "0");
 });
-
-load();
 </script>
 
 </body>
