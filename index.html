@@ -26,7 +26,6 @@ header {
   background-size: cover;
 }
 
-/* 電光掲示板 */
 .marquee {
   background: black;
   color: lime;
@@ -47,7 +46,6 @@ header {
   100% { transform: translateX(-100%); }
 }
 
-/* レイアウト */
 .container {
   display: flex;
   width: 100%;
@@ -60,16 +58,12 @@ header {
   background: white;
   padding: 20px;
   box-sizing: border-box;
-  min-width: 0;
 }
 
-/* 投稿カード */
 .post {
   margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 1px solid #ddd;
-
-  /* ←これ重要 */
   position: relative;
 }
 
@@ -80,57 +74,29 @@ header {
   margin-bottom: 10px;
 }
 
-/* 名前 */
 .meta {
   font-size: 12px;
   color: #666;
 }
 
-/* ⏰ 日時（右下固定） */
 .datetime {
   font-size: 11px;
   color: #999;
-
   position: absolute;
   right: 0;
   bottom: 5px;
 }
 
-/* ボタン */
-button {
-  margin-top: 5px;
-}
-
-/* 入力 */
 textarea, input, select {
   width: 100%;
   margin-bottom: 5px;
   box-sizing: border-box;
 }
 
-/* =========================
-   📱 スマホ
-========================= */
 @media screen and (max-width: 768px) {
-  .container {
-    flex-direction: column;
-  }
-
-  .side {
-    display: none;
-  }
-
-  .main {
-    width: 100%;
-    flex: none;
-    padding: 12px;
-    min-width: 0;
-  }
-
-  .post img {
-    width: 100%;
-    height: auto;
-  }
+  .container { flex-direction: column; }
+  .side { display: none; }
+  .main { width: 100%; }
 }
 </style>
 </head>
@@ -202,7 +168,39 @@ const db = getFirestore(app);
 
 const list = document.getElementById("list");
 
-/* 投稿 */
+/* =========================
+   👤 訪問者カウント（全員共通）
+========================= */
+const visitRef = doc(db, "meta", "visits");
+
+async function updateVisit() {
+  const result = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(visitRef);
+
+    let count = 1;
+
+    if (!snap.exists()) {
+      tx.set(visitRef, { count: 1 });
+    } else {
+      count = snap.data().count + 1;
+      tx.update(visitRef, { count });
+    }
+
+    return count;
+  });
+
+  const formatted = String(result).padStart(5, "0");
+
+  document.getElementById("marqueeText").textContent =
+    `☆私の家へようこそ　☆みんなで日記共有　☆毎日チェック！　 訪問者:${formatted}`;
+}
+
+/* 起動時にカウント */
+updateVisit();
+
+/* =========================
+   投稿
+========================= */
 document.getElementById("postBtn").addEventListener("click", post);
 
 async function post() {
@@ -281,7 +279,6 @@ onSnapshot(collection(db, "posts"), (snap) => {
     div.innerHTML = `
       ${p.image ? `<img src="${p.image}">` : ""}
       <p>${p.text}</p>
-
       <div class="meta">${p.name}</div>
 
       <button onclick="like('${p.id}')"
