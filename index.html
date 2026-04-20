@@ -47,19 +47,39 @@ header {
   100% { transform: translateX(-100%); }
 }
 
-/* レイアウト */
+/* =========================
+   📐 PCレイアウト
+========================= */
 .container {
   display: flex;
   width: 100%;
 }
 
-.side { flex: 1.5; }
+.side {
+  flex: 1.5;
+}
 
 .main {
   flex: 7;
   background: white;
   padding: 20px;
   box-sizing: border-box;
+
+  /* 重要 */
+  min-width: 0;
+}
+
+/* =========================
+   📸 画像制御
+========================= */
+.post img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  display: block;
+
+  object-fit: contain;
+  margin-bottom: 10px;
 }
 
 /* 投稿 */
@@ -67,13 +87,6 @@ header {
   margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 1px solid #ddd;
-}
-
-.post img {
-  width: 100%;
-  height: auto;
-  display: block;
-  margin-bottom: 10px;
 }
 
 /* メタ */
@@ -84,22 +97,63 @@ header {
   margin-top: 5px;
 }
 
+/* 入力 */
+textarea, input, select {
+  width: 100%;
+  margin-bottom: 5px;
+  box-sizing: border-box;
+}
+
 /* ボタン */
 button {
   margin-top: 5px;
 }
 
-/* 入力 */
-textarea, input, select {
-  width: 100%;
-  margin-bottom: 5px;
-}
-
+/* =========================
+   📱 スマホ完全対応
+========================= */
 @media screen and (max-width: 768px) {
+
   .container {
     flex-direction: column;
   }
-  .side { display: none; }
+
+  .side {
+    display: none;
+  }
+
+  .main {
+    width: 100%;
+    flex: none;
+    padding: 12px;
+
+    /* はみ出し防止 */
+    min-width: 0;
+  }
+
+  .post {
+    width: 100%;
+  }
+
+  .post img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  input, textarea, select, button {
+    font-size: 16px;
+  }
+
+  button {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .marquee {
+    font-size: 12px;
+  }
 }
 </style>
 </head>
@@ -112,7 +166,6 @@ textarea, input, select {
 
 <div class="banner"></div>
 
-<!-- 🌟 電光掲示板 -->
 <div class="marquee">
   <p id="marqueeText">読み込み中...</p>
 </div>
@@ -172,9 +225,7 @@ const db = getFirestore(app);
 
 const list = document.getElementById("list");
 
-/* =========================
-   投稿
-========================= */
+/* 投稿 */
 document.getElementById("postBtn").addEventListener("click", post);
 
 async function post() {
@@ -198,7 +249,7 @@ async function post() {
   document.getElementById("image").value = "";
 }
 
-/* 画像圧縮 */
+/* 圧縮 */
 function compress(file) {
   return new Promise((resolve) => {
     const r = new FileReader();
@@ -207,6 +258,7 @@ function compress(file) {
       img.onload = () => {
         const c = document.createElement("canvas");
         const scale = Math.min(1200 / img.width, 1);
+
         c.width = img.width * scale;
         c.height = img.height * scale;
 
@@ -221,9 +273,7 @@ function compress(file) {
   });
 }
 
-/* =========================
-   投稿表示
-========================= */
+/* 表示 */
 onSnapshot(collection(db, "posts"), (snap) => {
   let posts = [];
 
@@ -243,6 +293,8 @@ onSnapshot(collection(db, "posts"), (snap) => {
     const liked = localStorage.getItem("like_" + p.id);
 
     const div = document.createElement("div");
+    div.className = "post";
+
     div.innerHTML = `
       ${p.image ? `<img src="${p.image}">` : ""}
       <p>${p.text}</p>
@@ -255,9 +307,8 @@ onSnapshot(collection(db, "posts"), (snap) => {
       </button>
 
       <button onclick="del('${p.id}')">削除</button>
-
-      <hr>
     `;
+
     list.appendChild(div);
   });
 });
@@ -278,67 +329,6 @@ window.del = async (id) => {
   if (!confirm("削除する？")) return;
   await deleteDoc(doc(db,"posts",id));
 };
-
-/* =========================
-   👀 訪問者カウンター
-========================= */
-const counterRef = doc(db,"counter","visit");
-
-async function visit() {
-  await runTransaction(db, async (tx) => {
-    const s = await tx.get(counterRef);
-    if (!s.exists()) {
-      tx.set(counterRef,{count:1});
-    } else {
-      tx.update(counterRef,{count:s.data().count+1});
-    }
-  });
-}
-
-if (!sessionStorage.visited) {
-  visit();
-  sessionStorage.visited = "1";
-}
-
-let visitCount = 0;
-onSnapshot(counterRef,(s)=>{
-  visitCount = s.data()?.count || 0;
-  updateMarquee();
-});
-
-/* =========================
-   🌙 昼夜電光掲示板
-========================= */
-
-const dayMessages = [
-"今日もゆるく更新中","日記は気分でOK","いいねは生きる活力","あなたの投稿待ってます","ここはゆるいインターネット",
-"誰かがどこかで見ている","毎日がちょっとした記録","思いついたら書くスタイル","訪問ありがとうございます","投稿は自由です"
-];
-
-const nightMessages = [
-"深夜の投稿率高め","たまにバグります","スクロールすると人生","ここに意味はありません（あるかも）","静かなインターネット",
-"データは眠らない","誰かの生活ログ","夜は少しだけ特別","思考が流れる時間","ログは積もっていく"
-];
-
-function pick(arr){
-  return arr[Math.floor(Math.random()*arr.length)];
-}
-
-function getMsg(){
-  const h = new Date().getHours();
-  return (h>=5 && h<17) ? dayMessages : nightMessages;
-}
-
-function updateMarquee(){
-  const msgs = getMsg();
-
-  const text =
-    `☆${pick(msgs)}　☆${pick(msgs)}　☆${pick(msgs)}　訪問者:${String(visitCount).padStart(6,"0")}　`;
-
-  document.getElementById("marqueeText").textContent = text;
-}
-
-setInterval(updateMarquee, 8000);
 </script>
 
 </body>
