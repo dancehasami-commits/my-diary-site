@@ -76,71 +76,39 @@ header {
   margin-bottom: 10px;
 }
 
+/* メタ */
 .meta {
   font-size: 12px;
   color: #666;
   text-align: right;
+  margin-top: 5px;
 }
 
-/* =========================
-   🌟 ボタンUI
-========================= */
-
-.post button {
-  margin-top: 8px;
-  margin-right: 8px;
-  vertical-align: middle;
-}
-
-/* ❤️ いいねボタン（つやっと青） */
-.post button:first-of-type {
-  background: linear-gradient(180deg, #4da3ff 0%, #0b63d1 100%);
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
+/* ボタン */
+.like-btn {
+  background: none;
+  border: 1px solid #333;
+  padding: 5px 10px;
   cursor: pointer;
-  box-shadow: 0 3px 0 #084a9c, 0 6px 12px rgba(0,0,0,0.15);
-  transition: all 0.15s ease;
+  margin-top: 5px;
 }
 
-.post button:first-of-type:hover {
-  transform: translateY(-2px);
-}
-
-.post button:first-of-type:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #084a9c;
-}
-
-/* 🗑 削除ボタン */
-.post button:last-of-type {
-  background: #444;
+.like-btn.liked {
+  background: red;
   color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
 }
 
-/* ボタン間隔 */
-.post button + button {
-  margin-left: 10px;
+/* 入力 */
+textarea, input, select {
+  width: 100%;
+  margin-bottom: 5px;
 }
 
-/* 投稿ボタン（既存） */
-#postBtn {
-  margin-top: 10px;
-}
-
-/* スマホ */
 @media screen and (max-width: 768px) {
   .container {
     flex-direction: column;
   }
-  .side {
-    display: none;
-  }
+  .side { display: none; }
 }
 </style>
 </head>
@@ -154,7 +122,10 @@ header {
 <div class="banner"></div>
 
 <div class="marquee">
-  <p>☆共有日記サイト　☆リアルタイム更新中</p>
+  <p>
+    ☆みんなの日記　☆リアルタイム更新中　
+    訪問者: <span id="visitCount">000000</span>
+  </p>
 </div>
 
 <div class="container">
@@ -167,9 +138,15 @@ header {
     <textarea id="text" placeholder="日記を書く"></textarea>
     <input type="file" id="image">
 
+    <!-- ⭐ 並び替え -->
+    <select id="sort">
+      <option value="new">最新順</option>
+      <option value="like">いいね順</option>
+    </select>
+
     <button id="postBtn">投稿</button>
 
-    <hr>
+    <div style="border-top:2px solid #ddd; margin:20px 0;"></div>
 
     <section id="list"></section>
 
@@ -187,6 +164,7 @@ import {
   addDoc,
   deleteDoc,
   doc,
+  runTransaction,
   onSnapshot,
   updateDoc,
   increment
@@ -206,18 +184,10 @@ const db = getFirestore(app);
 
 const list = document.getElementById("list");
 
-/* ユーザーID */
-let userId = localStorage.getItem("userId");
-if (!userId) {
-  userId = crypto.randomUUID();
-  localStorage.setItem("userId", userId);
-}
-
-/* 管理者ID */
-const ADMIN_ID = "taro-goo-1000";
-
-/* 投稿 */
-document.getElementById("postBtn").addEventListener("click", async () => {
+/* =========================
+   投稿
+========================= */
+async function post() {
   const name = document.getElementById("name").value || "名前無し";
   const text = document.getElementById("text").value;
   const file = document.getElementById("image").files[0];
@@ -225,14 +195,13 @@ document.getElementById("postBtn").addEventListener("click", async () => {
   let image = "";
 
   if (file) {
-    image = await toBase64(file);
+    image = await compress(file);
   }
 
   await addDoc(collection(db, "posts"), {
     name,
     text,
     image,
-    userId,
     likes: 0,
     createdAt: Date.now()
   });
@@ -240,65 +209,126 @@ document.getElementById("postBtn").addEventListener("click", async () => {
   document.getElementById("name").value = "";
   document.getElementById("text").value = "";
   document.getElementById("image").value = "";
-});
+}
 
-/* 画像変換 */
-function toBase64(file) {
+/* ボタン */
+document.getElementById("postBtn").addEventListener("click", post);
+
+/* =========================
+   画像圧縮
+========================= */
+function compress(file) {
   return new Promise((resolve) => {
     const r = new FileReader();
-    r.onload = (e) => resolve(e.target.result);
+    r.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        const scale = Math.min(1200 / img.width, 1);
+        c.width = img.width * scale;
+        c.height = img.height * scale;
+
+        const ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+
+        resolve(c.toDataURL("image/jpeg", 0.7));
+      };
+      img.src = e.target.result;
+    };
     r.readAsDataURL(file);
   });
 }
 
-/* 表示 */
+/* =========================
+   🔴 リアルタイム更新
+========================= */
 onSnapshot(collection(db, "posts"), (snap) => {
-
   let posts = [];
 
   snap.forEach(d => {
     posts.push({ id: d.id, ...d.data() });
   });
 
-  posts.sort((a, b) => b.createdAt - a.createdAt);
+  const mode = document.getElementById("sort").value;
+
+  if (mode === "like") {
+    posts.sort((a, b) => b.likes - a.likes);
+  } else {
+    posts.sort((a, b) => b.createdAt - a.createdAt);
+  }
 
   list.innerHTML = "";
 
   posts.forEach(p => {
-
-    const isMine = p.userId === userId;
-    const isAdmin = userId === ADMIN_ID;
-    const canDelete = isMine || isAdmin;
+    const liked = localStorage.getItem("like_" + p.id);
 
     const div = document.createElement("div");
-    div.className = "post";
-
     div.innerHTML = `
       ${p.image ? `<img src="${p.image}">` : ""}
       <p>${p.text}</p>
-      <div class="meta">${p.name}</div>
+      <div style="text-align:right;font-size:12px;color:#666;">
+        ${p.name}
+      </div>
 
-      <button onclick="like('${p.id}')">❤️ ${p.likes}</button>
+      <button onclick="like('${p.id}')"
+        style="${liked ? 'background:red;color:white;' : ''}">
+        ❤️ ${p.likes}
+      </button>
 
-      ${canDelete ? `<button onclick="del('${p.id}')">削除</button>` : ""}
+      <button onclick="del('${p.id}')">削除</button>
+      <hr>
     `;
 
     list.appendChild(div);
   });
 });
 
-/* いいね */
+/* =========================
+   いいね
+========================= */
 window.like = async (id) => {
+  if (localStorage.getItem("like_" + id)) return;
+
   await updateDoc(doc(db, "posts", id), {
     likes: increment(1)
   });
+
+  localStorage.setItem("like_" + id, "1");
 };
 
-/* 削除 */
+/* =========================
+   削除
+========================= */
 window.del = async (id) => {
-  if (!confirm("削除しますか？")) return;
+  if (!confirm("削除する？")) return;
   await deleteDoc(doc(db, "posts", id));
 };
+
+/* =========================
+   カウンター
+========================= */
+const counterRef = doc(db, "counter", "visit");
+
+async function visit() {
+  await runTransaction(db, async (tx) => {
+    const s = await tx.get(counterRef);
+    if (!s.exists()) {
+      tx.set(counterRef, { count: 1 });
+    } else {
+      tx.update(counterRef, { count: s.data().count + 1 });
+    }
+  });
+}
+
+if (!sessionStorage.visited) {
+  visit();
+  sessionStorage.visited = "1";
+}
+
+onSnapshot(counterRef, (s) => {
+  document.getElementById("visitCount").textContent =
+    String(s.data()?.count || 0).padStart(6, "0");
+});
 </script>
 
 </body>
