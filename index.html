@@ -169,7 +169,17 @@ const db = getFirestore(app);
 const list = document.getElementById("list");
 
 /* =========================
-   👤 訪問者カウント（全員共通）
+   👤 ユーザーID（端末固定）
+========================= */
+let userId = localStorage.getItem("userId");
+
+if (!userId) {
+  userId = crypto.randomUUID();
+  localStorage.setItem("userId", userId);
+}
+
+/* =========================
+   👤 訪問者カウント
 ========================= */
 const visitRef = doc(db, "meta", "visits");
 
@@ -195,7 +205,6 @@ async function updateVisit() {
     `☆私の家へようこそ　☆みんなで日記共有　☆毎日チェック！　 訪問者:${formatted}`;
 }
 
-/* 起動時にカウント */
 updateVisit();
 
 /* =========================
@@ -216,7 +225,8 @@ async function post() {
     text,
     image,
     likes: 0,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    userId: userId
   });
 
   document.getElementById("name").value = "";
@@ -272,6 +282,7 @@ onSnapshot(collection(db, "posts"), (snap) => {
       `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
 
     const liked = localStorage.getItem("like_" + p.id);
+    const isMine = p.userId === userId;
 
     const div = document.createElement("div");
     div.className = "post";
@@ -286,7 +297,7 @@ onSnapshot(collection(db, "posts"), (snap) => {
         ❤️ ${p.likes}
       </button>
 
-      <button onclick="del('${p.id}')">削除</button>
+      ${isMine ? `<button onclick="del('${p.id}')">削除</button>` : ""}
 
       <div class="datetime">${datetime}</div>
     `;
