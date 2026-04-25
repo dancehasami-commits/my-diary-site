@@ -78,18 +78,58 @@ textarea, input, select {
   margin-bottom: 5px;
   box-sizing: border-box;
 }
+
+/* プレビュー */
+.preview-wrap {
+  position: relative;
+  width: 150px;
+  margin-bottom: 10px;
+}
 #preview {
   width: 150px;
   height: 150px;
   object-fit: cover;
   display: none;
-  margin-bottom: 10px;
   border: 1px solid #ccc;
 }
+#clearBtn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: black;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: none;
+}
+
+/* 👇 投稿ボタン強化 */
+#postBtn {
+  display: block;
+  width: 200%;          /* 横2倍 */
+  max-width: 400px;     /* 暴走防止 */
+  height: 60px;         /* 縦1.5倍くらい */
+  margin: 15px 0;
+  font-size: 18px;
+  font-weight: bold;
+  background: #111;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
 @media screen and (max-width: 768px) {
   .container { flex-direction: column; }
   .side { display: none; }
   .main { width: 100%; }
+
+  /* スマホは幅100%に */
+  #postBtn {
+    width: 100%;
+  }
 }
 </style>
 </head>
@@ -110,10 +150,14 @@ textarea, input, select {
   <div class="main">
     <input type="text" id="name" placeholder="名前">
     <textarea id="text" placeholder="日記を書く"></textarea>
-    <input type="file" id="image">
-    <img id="preview">
 
-    <!-- 👇ここを変更：投稿ボタンを先に -->
+    <input type="file" id="image">
+
+    <div class="preview-wrap">
+      <img id="preview">
+      <button id="clearBtn">×</button>
+    </div>
+
     <button id="postBtn">投稿</button>
 
     <select id="sort">
@@ -168,14 +212,12 @@ async function updateVisit() {
   const result = await runTransaction(db, async (tx) => {
     const snap = await tx.get(visitRef);
     let count = 1;
-
     if (!snap.exists()) {
       tx.set(visitRef, { count: 1 });
     } else {
       count = snap.data().count + 1;
       tx.update(visitRef, { count });
     }
-
     return count;
   });
 
@@ -184,34 +226,40 @@ async function updateVisit() {
   document.getElementById("marqueeText").textContent =
     `☆私の家へようこそ　☆みんなで日記共有　☆毎日チェック！　 訪問者:${formatted}`;
 }
-
 updateVisit();
 
-document.getElementById("image").addEventListener("change", previewImage);
+const input = document.getElementById("image");
+const preview = document.getElementById("preview");
+const clearBtn = document.getElementById("clearBtn");
 
-function previewImage() {
-  const file = document.getElementById("image").files[0];
-  const preview = document.getElementById("preview");
-
+input.addEventListener("change", () => {
+  const file = input.files[0];
   if (!file) {
     preview.style.display = "none";
+    clearBtn.style.display = "none";
     return;
   }
-
   const reader = new FileReader();
   reader.onload = (e) => {
     preview.src = e.target.result;
     preview.style.display = "block";
+    clearBtn.style.display = "block";
   };
   reader.readAsDataURL(file);
-}
+});
+
+clearBtn.addEventListener("click", () => {
+  input.value = "";
+  preview.style.display = "none";
+  clearBtn.style.display = "none";
+});
 
 document.getElementById("postBtn").addEventListener("click", post);
 
 async function post() {
   const name = document.getElementById("name").value || "名前無し";
   const text = document.getElementById("text").value;
-  const file = document.getElementById("image").files[0];
+  const file = input.files[0];
 
   let image = "";
   if (file) image = await compress(file);
@@ -227,8 +275,9 @@ async function post() {
 
   document.getElementById("name").value = "";
   document.getElementById("text").value = "";
-  document.getElementById("image").value = "";
-  document.getElementById("preview").style.display = "none";
+  input.value = "";
+  preview.style.display = "none";
+  clearBtn.style.display = "none";
 }
 
 function compress(file) {
