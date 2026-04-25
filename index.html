@@ -78,8 +78,6 @@ textarea, input, select {
   margin-bottom: 5px;
   box-sizing: border-box;
 }
-
-/* プレビュー */
 .preview-wrap {
   position: relative;
   width: 150px;
@@ -105,13 +103,11 @@ textarea, input, select {
   cursor: pointer;
   display: none;
 }
-
-/* 👇 投稿ボタン強化 */
 #postBtn {
   display: block;
-  width: 200%;          /* 横2倍 */
-  max-width: 400px;     /* 暴走防止 */
-  height: 60px;         /* 縦1.5倍くらい */
+  width: 200%;
+  max-width: 400px;
+  height: 60px;
   margin: 15px 0;
   font-size: 18px;
   font-weight: bold;
@@ -120,16 +116,11 @@ textarea, input, select {
   border: none;
   cursor: pointer;
 }
-
 @media screen and (max-width: 768px) {
   .container { flex-direction: column; }
   .side { display: none; }
   .main { width: 100%; }
-
-  /* スマホは幅100%に */
-  #postBtn {
-    width: 100%;
-  }
+  #postBtn { width: 100%; }
 }
 </style>
 </head>
@@ -150,7 +141,6 @@ textarea, input, select {
   <div class="main">
     <input type="text" id="name" placeholder="名前">
     <textarea id="text" placeholder="日記を書く"></textarea>
-
     <input type="file" id="image">
 
     <div class="preview-wrap">
@@ -258,8 +248,14 @@ document.getElementById("postBtn").addEventListener("click", post);
 
 async function post() {
   const name = document.getElementById("name").value || "名前無し";
-  const text = document.getElementById("text").value;
+  const text = document.getElementById("text").value.trim();
   const file = input.files[0];
+
+  // 👇ここ追加（空投稿防止）
+  if (!text && !file) {
+    alert("内容か画像を入れてください");
+    return;
+  }
 
   let image = "";
   if (file) image = await compress(file);
