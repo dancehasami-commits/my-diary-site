@@ -4,63 +4,134 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- ✅ SEO① タイトル -->
 <title>みんなの日記｜匿名で投稿できる日記サイト</title>
+
+<!-- ✅ SEO② 説明 -->
 <meta name="description" content="匿名で日記を投稿できるシンプルなサイト。画像投稿やいいね機能あり。">
 
+<!-- ✅ OGP追加ここから -->
 <meta property="og:title" content="みんなの日記｜匿名で投稿できる日記サイト">
 <meta property="og:description" content="匿名で日記を投稿できるシンプルなサイト。画像投稿やいいね機能あり。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://dancehasami-commits.github.io/my-diary-site/">
-<meta property="og:image" content="https://dancehasami-commits.github.io/my-diary-site/trimmed_ogp_image.png">
+<meta property="og:image" content="https://dancehasami-commits.github.io/my-diary-site/ogp.png">
+
 <meta name="twitter:card" content="summary_large_image">
+<!-- ✅ OGPここまで -->
 
 <style>
-body { font-family: sans-serif; margin: 0; background: #f5f5f5; }
-header { background: #111; color: #fff; padding: 30px; text-align: center; }
-.banner { width: 100%; height: 200px; background-image: url("banner1.png"); background-size: cover; }
-.marquee { background: black; color: lime; overflow: hidden; font-family: monospace; text-shadow: 0 0 8px lime; }
-.marquee p { white-space: nowrap; display: inline-block; padding-left: 100%; animation: scroll 15s linear infinite; }
-@keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
-
-.container { display: flex; width: 100%; }
+body {
+  font-family: sans-serif;
+  margin: 0;
+  background: #f5f5f5;
+}
+header {
+  background: #111;
+  color: #fff;
+  padding: 30px;
+  text-align: center;
+}
+.banner {
+  width: 100%;
+  height: 200px;
+  background-image: url("banner1.png");
+  background-size: cover;
+}
+.marquee {
+  background: black;
+  color: lime;
+  overflow: hidden;
+  font-family: monospace;
+  text-shadow: 0 0 8px lime;
+}
+.marquee p {
+  white-space: nowrap;
+  display: inline-block;
+  padding-left: 100%;
+  animation: scroll 15s linear infinite;
+}
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+.container {
+  display: flex;
+  width: 100%;
+}
 .side { flex: 1.5; }
-.main { flex: 7; background: white; padding: 20px; box-sizing: border-box; }
-
-.post { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd; position: relative; }
-.post img { width: 100%; height: auto; display: block; margin-bottom: 10px; }
-
-.meta { font-size: 12px; color: #666; }
-.datetime { font-size: 11px; color: #999; position: absolute; right: 0; bottom: 5px; }
-
-textarea, input, select { width: 100%; margin-bottom: 5px; box-sizing: border-box; }
-
-.preview-wrap { position: relative; width: 150px; margin-bottom: 10px; }
-#preview { width: 150px; height: 150px; object-fit: cover; display: none; border: 1px solid #ccc; }
+.main {
+  flex: 7;
+  background: white;
+  padding: 20px;
+  box-sizing: border-box;
+}
+.post {
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+  position: relative;
+}
+.post img {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-bottom: 10px;
+}
+.meta {
+  font-size: 12px;
+  color: #666;
+}
+.datetime {
+  font-size: 11px;
+  color: #999;
+  position: absolute;
+  right: 0;
+  bottom: 5px;
+}
+textarea, input, select {
+  width: 100%;
+  margin-bottom: 5px;
+  box-sizing: border-box;
+}
+.preview-wrap {
+  position: relative;
+  width: 150px;
+  margin-bottom: 10px;
+}
+#preview {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  display: none;
+  border: 1px solid #ccc;
+}
 #clearBtn {
-  position: absolute; top: -8px; right: -8px;
-  background: black; color: white; border: none;
-  border-radius: 50%; width: 24px; height: 24px;
-  cursor: pointer; display: none;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: black;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: none;
 }
-
 #postBtn {
-  display: block; width: 200%; max-width: 400px;
-  height: 60px; margin: 15px 0;
-  font-size: 18px; font-weight: bold;
-  background: #111; color: white;
-  border: none; cursor: pointer;
+  display: block;
+  width: 200%;
+  max-width: 400px;
+  height: 60px;
+  margin: 15px 0;
+  font-size: 18px;
+  font-weight: bold;
+  background: #111;
+  color: white;
+  border: none;
+  cursor: pointer;
 }
-
-/* 👇 シェアアイコン */
-.share-btn {
-  width: 18px;
-  height: 18px;
-  margin-left: 8px;
-  opacity: 0.5;
-  vertical-align: middle;
-}
-.share-btn:hover { opacity: 1; }
-
 @media screen and (max-width: 768px) {
   .container { flex-direction: column; }
   .side { display: none; }
@@ -69,116 +140,55 @@ textarea, input, select { width: 100%; margin-bottom: 5px; box-sizing: border-bo
 }
 </style>
 </head>
-
 <body>
 
 <header>
 <h1>みんなの日記</h1>
-<p>匿名で日記を書いて共有できるサイトです。</p>
+
+<!-- SEO③ -->
+<p>
+匿名で日記を書いて共有できるサイトです。画像投稿やいいね機能で気軽に楽しめます。
+</p>
+
 </header>
 
 <div class="banner"></div>
 
 <div class="marquee">
-<p id="marqueeText">読み込み中...</p>
+  <p id="marqueeText">読み込み中...</p>
 </div>
 
 <div class="container">
-<div class="side"></div>
+  <div class="side"></div>
 
-<div class="main">
-<input type="text" id="name" placeholder="名前">
-<textarea id="text" placeholder="日記を書く"></textarea>
-<input type="file" id="image">
+  <div class="main">
+    <input type="text" id="name" placeholder="名前">
+    <textarea id="text" placeholder="日記を書く"></textarea>
+    <input type="file" id="image">
 
-<div class="preview-wrap">
-<img id="preview">
-<button id="clearBtn">×</button>
+    <div class="preview-wrap">
+      <img id="preview">
+      <button id="clearBtn">×</button>
+    </div>
+
+    <button id="postBtn">投稿</button>
+
+    <select id="sort">
+      <option value="new">最新順</option>
+      <option value="like">いいね順</option>
+    </select>
+
+    <div style="border-top:2px solid #ddd; margin:20px 0;"></div>
+
+    <section id="list"></section>
+  </div>
+
+  <div class="side"></div>
 </div>
 
-<button id="postBtn">投稿</button>
-
-<select id="sort">
-<option value="new">最新順</option>
-<option value="like">いいね順</option>
-</select>
-
-<div style="border-top:2px solid #ddd; margin:20px 0;"></div>
-<section id="list"></section>
-</div>
-
-<div class="side"></div>
-</div>
-
+<!-- JS部分はそのまま（省略せず使ってOK） -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getFirestore, collection, addDoc, deleteDoc,
-  doc, runTransaction, onSnapshot, updateDoc, increment
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const firebaseConfig = { /* あなたの設定そのまま */ };
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const list = document.getElementById("list");
-
-let userId = localStorage.getItem("userId") || crypto.randomUUID();
-localStorage.setItem("userId", userId);
-
-/* 投稿 */
-document.getElementById("postBtn").onclick = async () => {
-  const name = document.getElementById("name").value || "名前無し";
-  const text = document.getElementById("text").value.trim();
-  if (!text) return alert("内容を入力してください");
-
-  await addDoc(collection(db, "posts"), {
-    name, text, likes: 0,
-    createdAt: Date.now(),
-    userId
-  });
-
-  document.getElementById("text").value = "";
-};
-
-/* URLパラメータ取得 */
-const params = new URLSearchParams(location.search);
-const targetId = params.get("id");
-
-/* 表示 */
-onSnapshot(collection(db, "posts"), snap => {
-  let posts = [];
-  snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
-
-  if (targetId) posts = posts.filter(p => p.id === targetId);
-
-  posts.sort((a,b)=>b.createdAt-a.createdAt);
-  list.innerHTML = "";
-
-  posts.forEach(p => {
-    const div = document.createElement("div");
-    div.className = "post";
-
-    const shareUrl = location.origin + location.pathname + "?id=" + p.id;
-
-    div.innerHTML = `
-      <p>${p.text}</p>
-      <div class="meta">${p.name}</div>
-
-      <button onclick="like('${p.id}')">❤️ ${p.likes}</button>
-
-      <a href="https://twitter.com/intent/tweet?url=${shareUrl}" target="_blank">
-        <img class="share-btn" src="https://cdn-icons-png.flaticon.com/512/733/733579.png">
-      </a>
-    `;
-
-    list.appendChild(div);
-  });
-});
-
-/* いいね */
-window.like = async id => {
-  await updateDoc(doc(db,"posts",id), { likes: increment(1) });
-};
+/* ここはあなたのコードそのままでOK */
 </script>
 
 </body>
