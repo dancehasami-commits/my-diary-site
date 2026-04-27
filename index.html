@@ -4,11 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- SEO① タイトル -->
+<!-- ✅ SEO① タイトル -->
 <title>みんなの日記｜匿名で投稿できる日記サイト</title>
 
-<!-- SEO② 説明 -->
+<!-- ✅ SEO② 説明 -->
 <meta name="description" content="匿名で日記を投稿できるシンプルなサイト。画像投稿やいいね機能あり。">
+
+<!-- ✅ OGP -->
+<meta property="og:title" content="みんなの日記｜匿名で投稿できる日記サイト">
+<meta property="og:description" content="匿名で日記を投稿できるシンプルなサイト。画像投稿やいいね機能あり。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://dancehasami-commits.github.io/my-diary-site/">
+
+<!-- 👇ここが重要（画像差し替え） -->
+<meta property="og:image" content="https://dancehasami-commits.github.io/my-diary-site/trimmed_ogp_image.png">
+
+<meta name="twitter:card" content="summary_large_image">
 
 <style>
 body {
@@ -84,37 +95,49 @@ textarea, input, select {
   margin-bottom: 5px;
   box-sizing: border-box;
 }
+.preview-wrap {
+  position: relative;
+  width: 150px;
+  margin-bottom: 10px;
+}
 #preview {
   width: 150px;
   height: 150px;
   object-fit: cover;
   display: none;
-  margin-bottom: 10px;
   border: 1px solid #ccc;
 }
-
-/* 投稿ボタン強化 */
+#clearBtn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: black;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: none;
+}
 #postBtn {
+  display: block;
   width: 200%;
+  max-width: 400px;
   height: 60px;
+  margin: 15px 0;
   font-size: 18px;
   font-weight: bold;
-  margin: 10px 0;
+  background: #111;
+  color: white;
+  border: none;
+  cursor: pointer;
 }
-
-#cancelBtn {
-  display: none;
-  margin-bottom: 10px;
-}
-
 @media screen and (max-width: 768px) {
   .container { flex-direction: column; }
   .side { display: none; }
   .main { width: 100%; }
-
-  #postBtn {
-    width: 100%;
-  }
+  #postBtn { width: 100%; }
 }
 </style>
 </head>
@@ -122,12 +145,9 @@ textarea, input, select {
 
 <header>
 <h1>みんなの日記</h1>
-
-<!-- SEO③ ページ説明 -->
 <p>
 匿名で日記を書いて共有できるサイトです。画像投稿やいいね機能で気軽に楽しめます。
 </p>
-
 </header>
 
 <div class="banner"></div>
@@ -142,10 +162,12 @@ textarea, input, select {
   <div class="main">
     <input type="text" id="name" placeholder="名前">
     <textarea id="text" placeholder="日記を書く"></textarea>
-
     <input type="file" id="image">
-    <img id="preview">
-    <button id="cancelBtn">画像を取り消す</button>
+
+    <div class="preview-wrap">
+      <img id="preview">
+      <button id="clearBtn">×</button>
+    </div>
 
     <button id="postBtn">投稿</button>
 
@@ -163,121 +185,8 @@ textarea, input, select {
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  runTransaction,
-  onSnapshot,
-  updateDoc,
-  increment
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyATX...",
-  authDomain: "arigatou-25a5b.firebaseapp.com",
-  projectId: "arigatou-25a5b",
-  storageBucket: "arigatou-25a5b.firebasestorage.app",
-  messagingSenderId: "514833999618",
-  appId: "1:514833999618:web:d44507b9a99d76d2fd841b"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-const list = document.getElementById("list");
-const preview = document.getElementById("preview");
-const cancelBtn = document.getElementById("cancelBtn");
-
-/* 画像プレビュー */
-document.getElementById("image").addEventListener("change", () => {
-  const file = document.getElementById("image").files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    preview.src = e.target.result;
-    preview.style.display = "block";
-    cancelBtn.style.display = "block";
-  };
-  reader.readAsDataURL(file);
-});
-
-/* 画像取り消し */
-cancelBtn.addEventListener("click", () => {
-  document.getElementById("image").value = "";
-  preview.style.display = "none";
-  cancelBtn.style.display = "none";
-});
-
-/* 投稿 */
-document.getElementById("postBtn").addEventListener("click", async () => {
-  const name = document.getElementById("name").value || "名前無し";
-  const text = document.getElementById("text").value.trim();
-  const file = document.getElementById("image").files[0];
-
-  if (!text && !file) {
-    alert("内容か画像を入力してください");
-    return;
-  }
-
-  let image = "";
-
-  if (file) {
-    image = await new Promise(resolve => {
-      const r = new FileReader();
-      r.onload = e => resolve(e.target.result);
-      r.readAsDataURL(file);
-    });
-  }
-
-  await addDoc(collection(db, "posts"), {
-    name,
-    text,
-    image,
-    likes: 0,
-    createdAt: Date.now()
-  });
-
-  document.getElementById("text").value = "";
-  document.getElementById("image").value = "";
-  preview.style.display = "none";
-  cancelBtn.style.display = "none";
-});
-
-/* 表示 */
-onSnapshot(collection(db, "posts"), (snap) => {
-  let posts = [];
-  snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
-
-  posts.sort((a,b)=>b.createdAt-a.createdAt);
-
-  list.innerHTML = "";
-
-  posts.forEach(p => {
-    const div = document.createElement("div");
-    div.className = "post";
-
-    div.innerHTML = `
-      ${p.image ? `<img src="${p.image}">` : ""}
-      <p>${p.text}</p>
-      <div class="meta">${p.name}</div>
-      <button onclick="like('${p.id}')">❤️ ${p.likes}</button>
-    `;
-
-    list.appendChild(div);
-  });
-});
-
-/* いいね */
-window.like = async (id) => {
-  await updateDoc(doc(db,"posts",id), {
-    likes: increment(1)
-  });
-};
+/* ここはあなたの元コードそのまま貼り付けてOK */
 </script>
+
 </body>
 </html>
