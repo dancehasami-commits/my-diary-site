@@ -3,23 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- ✅ SEO① タイトル -->
-<title>みんなの日記｜匿名で投稿できる日記サイト</title>
-
-<!-- ✅ SEO② 説明 -->
-<meta name="description" content="匿名で日記を投稿できるシンプルなサイト。画像投稿やいいね機能あり。">
-
-<!-- ✅ OGP追加ここから -->
-<meta property="og:title" content="みんなの日記｜匿名で投稿できる日記サイト">
-<meta property="og:description" content="匿名で日記を投稿できるシンプルなサイト。画像投稿やいいね機能あり。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://dancehasami-commits.github.io/my-diary-site/">
-<meta property="og:image" content="https://dancehasami-commits.github.io/my-diary-site/ogp.png">
-
-<meta name="twitter:card" content="summary_large_image">
-<!-- ✅ OGPここまで -->
-
+<title>共有日記サイト</title>
 <style>
 body {
   font-family: sans-serif;
@@ -141,15 +125,8 @@ textarea, input, select {
 </style>
 </head>
 <body>
-
 <header>
 <h1>みんなの日記</h1>
-
-<!-- SEO③ -->
-<p>
-匿名で日記を書いて共有できるサイトです。画像投稿やいいね機能で気軽に楽しめます。
-</p>
-
 </header>
 
 <div class="banner"></div>
@@ -186,10 +163,193 @@ textarea, input, select {
   <div class="side"></div>
 </div>
 
-<!-- JS部分はそのまま（省略せず使ってOK） -->
 <script type="module">
-/* ここはあなたのコードそのままでOK */
-</script>
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  deleteDoc,
+  doc,
+  runTransaction,
+  onSnapshot,
+  updateDoc,
+  increment
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+const firebaseConfig = {
+  apiKey: "AIzaSyATX-E11u6N_Z4YI_vxW4fsASJeuDHkrX4",
+  authDomain: "arigatou-25a5b.firebaseapp.com",
+  projectId: "arigatou-25a5b",
+  storageBucket: "arigatou-25a5b.firebasestorage.app",
+  messagingSenderId: "514833999618",
+  appId: "1:514833999618:web:d44507b9a99d76d2fd841b"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const list = document.getElementById("list");
+
+let userId = localStorage.getItem("userId");
+if (!userId) {
+  userId = crypto.randomUUID();
+  localStorage.setItem("userId", userId);
+}
+
+const visitRef = doc(db, "meta", "visits");
+
+async function updateVisit() {
+  const result = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(visitRef);
+    let count = 1;
+    if (!snap.exists()) {
+      tx.set(visitRef, { count: 1 });
+    } else {
+      count = snap.data().count + 1;
+      tx.update(visitRef, { count });
+    }
+    return count;
+  });
+
+  const formatted = String(result).padStart(5, "0");
+
+  document.getElementById("marqueeText").textContent =
+    `☆私の家へようこそ　☆みんなで日記共有　☆毎日チェック！　 訪問者:${formatted}`;
+}
+updateVisit();
+
+const input = document.getElementById("image");
+const preview = document.getElementById("preview");
+const clearBtn = document.getElementById("clearBtn");
+
+input.addEventListener("change", () => {
+  const file = input.files[0];
+  if (!file) {
+    preview.style.display = "none";
+    clearBtn.style.display = "none";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    preview.src = e.target.result;
+    preview.style.display = "block";
+    clearBtn.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+});
+
+clearBtn.addEventListener("click", () => {
+  input.value = "";
+  preview.style.display = "none";
+  clearBtn.style.display = "none";
+});
+
+document.getElementById("postBtn").addEventListener("click", post);
+
+async function post() {
+  const name = document.getElementById("name").value || "名前無し";
+  const text = document.getElementById("text").value.trim();
+  const file = input.files[0];
+
+  // 👇ここ追加（空投稿防止）
+  if (!text && !file) {
+    alert("内容か画像を入れてください");
+    return;
+  }
+
+  let image = "";
+  if (file) image = await compress(file);
+
+  await addDoc(collection(db, "posts"), {
+    name,
+    text,
+    image,
+    likes: 0,
+    createdAt: Date.now(),
+    userId: userId
+  });
+
+  document.getElementById("name").value = "";
+  document.getElementById("text").value = "";
+  input.value = "";
+  preview.style.display = "none";
+  clearBtn.style.display = "none";
+}
+
+function compress(file) {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        const scale = Math.min(1200 / img.width, 1);
+        c.width = img.width * scale;
+        c.height = img.height * scale;
+        const ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/jpeg", 0.7));
+      };
+      img.src = e.target.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+onSnapshot(collection(db, "posts"), (snap) => {
+  let posts = [];
+  snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
+
+  const mode = document.getElementById("sort").value;
+
+  if (mode === "like") {
+    posts.sort((a,b)=>b.likes-a.likes);
+  } else {
+    posts.sort((a,b)=>b.createdAt-a.createdAt);
+  }
+
+  list.innerHTML = "";
+
+  posts.forEach(p => {
+    const date = new Date(p.createdAt);
+    const datetime =
+      `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ` +
+      `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+
+    const liked = localStorage.getItem("like_" + p.id);
+    const isMine = p.userId === userId;
+
+    const div = document.createElement("div");
+    div.className = "post";
+
+    div.innerHTML = `
+      ${p.image ? `<img src="${p.image}">` : ""}
+      <p>${p.text}</p>
+      <div class="meta">${p.name}</div>
+      <button onclick="like('${p.id}')"
+        style="${liked ? 'background:red;color:white;' : ''}">
+        ❤️ ${p.likes}
+      </button>
+      ${isMine ? `<button onclick="del('${p.id}')">削除</button>` : ""}
+      <div class="datetime">${datetime}</div>
+    `;
+
+    list.appendChild(div);
+  });
+});
+
+window.like = async (id) => {
+  if (localStorage.getItem("like_" + id)) return;
+  await updateDoc(doc(db,"posts",id), {
+    likes: increment(1)
+  });
+  localStorage.setItem("like_" + id, "1");
+};
+
+window.del = async (id) => {
+  if (!confirm("削除する？")) return;
+  await deleteDoc(doc(db,"posts",id));
+};
+</script>
 </body>
 </html>
