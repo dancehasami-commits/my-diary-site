@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>共有日記サイト - 無限スクロール版</title>
+<title>共有日記サイト - 匿名認証版</title>
 <style>
-/* 既存のスタイルを完全に維持 */
+/* デザインは一切変えず、既存のスタイルを維持 */
 body { font-family: sans-serif; margin: 0; background: #f5f5f5; }
 header { background: #111; color: #fff; padding: 30px; text-align: center; }
 .banner { width: 100%; height: 200px; background-image: url("banner1.png"); background-size: cover; }
@@ -42,7 +42,7 @@ textarea, input, select { width: 100%; margin-bottom: 10px; padding: 10px; box-s
     <div class="preview-wrap">
       <img id="preview"><button id="clearBtn">×</button>
     </div>
-    <button id="postBtn">投稿</button>
+    <button id="postBtn" disabled>認証中...</button> <!-- 認証まで待機 -->
 
     <div style="border-top:2px solid #ddd; margin:20px 0;"></div>
     
@@ -54,6 +54,7 @@ textarea, input, select { width: 100%; margin-bottom: 10px; padding: 10px; box-s
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, deleteDoc, doc, runTransaction,
   query, orderBy, limit, getDocs, startAfter, updateDoc, increment
@@ -69,21 +70,34 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
+
 const list = document.getElementById("list");
 const loadingStatus = document.getElementById("loadingStatus");
+const postBtn = document.getElementById("postBtn");
 
-let userId = localStorage.getItem("userId") || crypto.randomUUID();
-localStorage.setItem("userId", userId);
+let currentUid = null; // Firebaseから発行された本物のID
 
-// 保存された名前を表示
+// --- 匿名認証の実行 ---
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUid = user.uid;
+    postBtn.disabled = false;
+    postBtn.textContent = "投稿";
+    loadPosts(); // 認証後に読み込み開始
+  } else {
+    signInAnonymously(auth).catch(e => alert("認証エラーが発生しました"));
+  }
+});
+
 document.getElementById("name").value = localStorage.getItem("savedName") || "";
 
 let lastVisible = null;
 let isLoading = false;
 let hasMore = true;
 
-// --- 訪問者数更新 ---
+// --- 訪問者数 ---
 async function updateVisit() {
   const visitRef = doc(db, "meta", "visits");
   try {
@@ -98,7 +112,7 @@ async function updateVisit() {
 }
 updateVisit();
 
-// --- 投稿機能 ---
+// --- 画像処理 ---
 const input = document.getElementById("image");
 const preview = document.getElementById("preview");
 const clearBtn = document.getElementById("clearBtn");
@@ -111,24 +125,27 @@ input.onchange = () => {
     reader.readAsDataURL(file);
   }
 };
-
 clearBtn.onclick = () => { input.value = ""; preview.style.display = "none"; clearBtn.style.display = "none"; };
 
-document.getElementById("postBtn").onclick = async () => {
+// --- 投稿 ---
+postBtn.onclick = async () => {
   const name = document.getElementById("name").value || "名前無し";
   const text = document.getElementById("text").value.trim();
   if (!text && !input.files[0]) return alert("内容を入力してください");
 
-  localStorage.setItem("savedName", name); // 名前を保存
-  document.getElementById("postBtn").disabled = true; // 連打防止
+  localStorage.setItem("savedName", name);
+  postBtn.disabled = true;
 
   try {
     let image = input.files[0] ? await compress(input.files[0]) : "";
-    await addDoc(collection(db, "posts"), { name, text, image, likes: 0, createdAt: Date.now(), userId });
+    await addDoc(collection(db, "posts"), {
+      name, text, image, likes: 0, createdAt: Date.now(), 
+      userId: currentUid // FirebaseのUIDを使用
+    });
     location.reload();
   } catch (e) {
     alert("投稿に失敗しました");
-    document.getElementById("postBtn").disabled = false;
+    postBtn.disabled = false;
   }
 };
 
@@ -163,7 +180,6 @@ async function loadPosts() {
       isLoading = false;
       return;
     }
-
     lastVisible = snap.docs[snap.docs.length - 1];
     
     snap.forEach(d => {
@@ -179,7 +195,7 @@ async function loadPosts() {
         <p>${p.text}</p>
         <div class="meta">${p.name}</div>
         <button onclick="like('${p.id}', this)" ${liked ? 'style="background:red;color:white;"' : ''}>❤️ <span>${p.likes || 0}</span></button>
-        ${p.userId === userId ? `<button onclick="del('${p.id}')">削除</button>` : ""}
+        ${p.userId === currentUid ? `<button onclick="del('${p.id}')">削除</button>` : ""}
         <div class="datetime">${timeStr}</div>
       `;
       list.appendChild(div);
@@ -189,8 +205,6 @@ async function loadPosts() {
   isLoading = false;
   loadingStatus.textContent = "";
 }
-
-loadPosts();
 
 window.onscroll = () => {
   if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
@@ -215,9 +229,7 @@ window.del = async (id) => {
   try {
     await deleteDoc(doc(db, "posts", id));
     location.reload();
-  } catch (e) {
-    alert("権限がありません");
-  }
+  } catch (e) { alert("権限がありません"); }
 };
 </script>
 </body>
