@@ -75,7 +75,7 @@ header {
 }
 textarea, input, select {
   width: 100%;
-  margin-bottom: 5px;
+  margin-bottom: 10px;
   box-sizing: border-box;
 }
 .preview-wrap {
@@ -105,7 +105,7 @@ textarea, input, select {
 }
 #postBtn {
   display: block;
-  width: 200%;
+  width: 100%;
   max-width: 400px;
   height: 60px;
   margin: 15px 0;
@@ -150,6 +150,7 @@ textarea, input, select {
 
     <button id="postBtn">投稿</button>
 
+    <label for="sort">表示順：</label>
     <select id="sort">
       <option value="new">最新順</option>
       <option value="like">いいね順</option>
@@ -196,6 +197,9 @@ if (!userId) {
   localStorage.setItem("userId", userId);
 }
 
+// 投稿データを保持する一時的な配列
+let allPosts = [];
+
 const visitRef = doc(db, "meta", "visits");
 
 async function updateVisit() {
@@ -212,7 +216,6 @@ async function updateVisit() {
   });
 
   const formatted = String(result).padStart(5, "0");
-
   document.getElementById("marqueeText").textContent =
     `☆私の家へようこそ　☆みんなで日記共有　☆毎日チェック！　 訪問者:${formatted}`;
 }
@@ -251,7 +254,6 @@ async function post() {
   const text = document.getElementById("text").value.trim();
   const file = input.files[0];
 
-  // 👇ここ追加（空投稿防止）
   if (!text && !file) {
     alert("内容か画像を入れてください");
     return;
@@ -296,16 +298,17 @@ function compress(file) {
   });
 }
 
-onSnapshot(collection(db, "posts"), (snap) => {
-  let posts = [];
-  snap.forEach(d => posts.push({ id: d.id, ...d.data() }));
-
+// 投稿を画面に描画するメイン関数
+function renderPosts() {
   const mode = document.getElementById("sort").value;
+  let posts = [...allPosts];
 
   if (mode === "like") {
-    posts.sort((a,b)=>b.likes-a.likes);
+    // いいね順（多い順）
+    posts.sort((a, b) => (b.likes || 0) - (a.likes || 0));
   } else {
-    posts.sort((a,b)=>b.createdAt-a.createdAt);
+    // 最新順（時間が大きい順）
+    posts.sort((a, b) => b.createdAt - a.createdAt);
   }
 
   list.innerHTML = "";
@@ -328,7 +331,7 @@ onSnapshot(collection(db, "posts"), (snap) => {
       <div class="meta">${p.name}</div>
       <button onclick="like('${p.id}')"
         style="${liked ? 'background:red;color:white;' : ''}">
-        ❤️ ${p.likes}
+        ❤️ ${p.likes || 0}
       </button>
       ${isMine ? `<button onclick="del('${p.id}')">削除</button>` : ""}
       <div class="datetime">${datetime}</div>
@@ -336,7 +339,17 @@ onSnapshot(collection(db, "posts"), (snap) => {
 
     list.appendChild(div);
   });
+}
+
+// リアルタイム監視
+onSnapshot(collection(db, "posts"), (snap) => {
+  allPosts = [];
+  snap.forEach(d => allPosts.push({ id: d.id, ...d.data() }));
+  renderPosts();
 });
+
+// ソートメニューが変更されたとき
+document.getElementById("sort").addEventListener("change", renderPosts);
 
 window.like = async (id) => {
   if (localStorage.getItem("like_" + id)) return;
