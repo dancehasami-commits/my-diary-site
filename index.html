@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>共有日記サイト - 匿名認証版</title>
+<title>共有日記サイト - 匿名認証・無限スクロール版</title>
 <style>
 /* デザインは一切変えず、既存のスタイルを維持 */
 body { font-family: sans-serif; margin: 0; background: #f5f5f5; }
@@ -25,7 +25,7 @@ textarea, input, select { width: 100%; margin-bottom: 10px; padding: 10px; box-s
 #clearBtn { position: absolute; top: -8px; right: -8px; background: black; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: none; }
 #postBtn { display: block; width: 100%; max-width: 400px; height: 60px; margin: 15px 0; font-size: 18px; font-weight: bold; background: #111; color: white; border: none; cursor: pointer; border-radius: 8px; }
 #loadingStatus { text-align: center; padding: 20px; color: #666; font-size: 14px; }
-@media screen and (max-width: 768px) { .container { flex-direction: column; } .side { display: none; } .main { width: 100%; } }
+@media screen and (max-width: 768px) { .container { flex-direction: column; } .side { display: none; } .main { width: 100%; } #postBtn { width: 100%; } }
 </style>
 </head>
 <body>
@@ -42,12 +42,18 @@ textarea, input, select { width: 100%; margin-bottom: 10px; padding: 10px; box-s
     <div class="preview-wrap">
       <img id="preview"><button id="clearBtn">×</button>
     </div>
-    <button id="postBtn" disabled>認証中...</button> <!-- 認証まで待機 -->
+    <button id="postBtn" disabled>認証中...</button>
+
+    <label for="sort">表示順：</label>
+    <select id="sort">
+      <option value="createdAt">最新順</option>
+      <option value="likes">いいね順</option>
+    </select>
 
     <div style="border-top:2px solid #ddd; margin:20px 0;"></div>
     
     <section id="list"></section>
-    <div id="loadingStatus">読み込み中...</div>
+    <div id="loadingStatus"></div>
   </div>
   <div class="side"></div>
 </div>
@@ -76,8 +82,12 @@ const db = getFirestore(app);
 const list = document.getElementById("list");
 const loadingStatus = document.getElementById("loadingStatus");
 const postBtn = document.getElementById("postBtn");
+const sortSelect = document.getElementById("sort");
 
-let currentUid = null; // Firebaseから発行された本物のID
+let currentUid = null;
+let lastVisible = null;
+let isLoading = false;
+let hasMore = true;
 
 // --- 匿名認証の実行 ---
 onAuthStateChanged(auth, (user) => {
@@ -85,7 +95,7 @@ onAuthStateChanged(auth, (user) => {
     currentUid = user.uid;
     postBtn.disabled = false;
     postBtn.textContent = "投稿";
-    loadPosts(); // 認証後に読み込み開始
+    refreshList(); // 認証後に読み込み開始
   } else {
     signInAnonymously(auth).catch(e => alert("認証エラーが発生しました"));
   }
@@ -93,11 +103,7 @@ onAuthStateChanged(auth, (user) => {
 
 document.getElementById("name").value = localStorage.getItem("savedName") || "";
 
-let lastVisible = null;
-let isLoading = false;
-let hasMore = true;
-
-// --- 訪問者数 ---
+// --- 訪問者数更新 (過去のテキストを復活) ---
 async function updateVisit() {
   const visitRef = doc(db, "meta", "visits");
   try {
@@ -107,7 +113,9 @@ async function updateVisit() {
       tx.set(visitRef, { count }, { merge: true });
       return count;
     });
-    document.getElementById("marqueeText").textContent = `☆みんなで日記共有 訪問者:${String(result).padStart(5, "0")}`;
+    const formatted = String(result).padStart(5, "0");
+    document.getElementById("marqueeText").textContent = 
+      `☆私の家へようこそ　☆みんなで日記共有　☆毎日チェック！　 訪問者:${formatted}`;
   } catch(e) { console.error(e); }
 }
 updateVisit();
@@ -131,7 +139,7 @@ clearBtn.onclick = () => { input.value = ""; preview.style.display = "none"; cle
 postBtn.onclick = async () => {
   const name = document.getElementById("name").value || "名前無し";
   const text = document.getElementById("text").value.trim();
-  if (!text && !input.files[0]) return alert("内容を入力してください");
+  if (!text && !input.files[0]) return alert("内容か画像を入れてください");
 
   localStorage.setItem("savedName", name);
   postBtn.disabled = true;
@@ -140,7 +148,7 @@ postBtn.onclick = async () => {
     let image = input.files[0] ? await compress(input.files[0]) : "";
     await addDoc(collection(db, "posts"), {
       name, text, image, likes: 0, createdAt: Date.now(), 
-      userId: currentUid // FirebaseのUIDを使用
+      userId: currentUid 
     });
     location.reload();
   } catch (e) {
@@ -163,13 +171,27 @@ function compress(file) {
   });
 }
 
-// --- 読み込み ---
+// --- ソート切り替え時のリセット ---
+sortSelect.onchange = () => {
+  refreshList();
+};
+
+function refreshList() {
+  list.innerHTML = "";
+  lastVisible = null;
+  hasMore = true;
+  loadPosts();
+}
+
+// --- 読み込み (詳細日時表示・ソート対応) ---
 async function loadPosts() {
-  if (isLoading || !hasMore) return;
+  if (isLoading || !hasMore || !currentUid) return;
   isLoading = true;
   loadingStatus.textContent = "読み込み中...";
 
-  let q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(10));
+  const sortField = sortSelect.value;
+  // 最新順または人気順のクエリ
+  let q = query(collection(db, "posts"), orderBy(sortField, "desc"), limit(10));
   if (lastVisible) q = query(q, startAfter(lastVisible));
 
   try {
@@ -185,7 +207,11 @@ async function loadPosts() {
     snap.forEach(d => {
       const p = { id: d.id, ...d.data() };
       const date = new Date(p.createdAt);
-      const timeStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2,'0')}`;
+      // 年月日 時間:分 まで詳細に表示
+      const datetime =
+        `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ` +
+        `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+      
       const liked = localStorage.getItem("like_" + p.id);
 
       const div = document.createElement("div");
@@ -196,7 +222,7 @@ async function loadPosts() {
         <div class="meta">${p.name}</div>
         <button onclick="like('${p.id}', this)" ${liked ? 'style="background:red;color:white;"' : ''}>❤️ <span>${p.likes || 0}</span></button>
         ${p.userId === currentUid ? `<button onclick="del('${p.id}')">削除</button>` : ""}
-        <div class="datetime">${timeStr}</div>
+        <div class="datetime">${datetime}</div>
       `;
       list.appendChild(div);
     });
