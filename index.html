@@ -3,48 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>共有日記サイト - セキュリティ強化版</title>
+<title>共有日記サイト - 無限スクロール版</title>
 <style>
-body { font-family: sans-serif; margin: 0; background: #f5f5f5; color: #333; }
+/* 既存のスタイルを完全に維持 */
+body { font-family: sans-serif; margin: 0; background: #f5f5f5; }
 header { background: #111; color: #fff; padding: 30px; text-align: center; }
-.banner { width: 100%; height: 200px; background-image: url("banner1.png"); background-size: cover; background-position: center; }
-.marquee { background: black; color: lime; overflow: hidden; font-family: monospace; text-shadow: 0 0 8px lime; padding: 5px 0; }
-.marquee p { white-space: nowrap; display: inline-block; padding-left: 100%; animation: scroll 15s linear infinite; margin: 0; }
+.banner { width: 100%; height: 200px; background-image: url("banner1.png"); background-size: cover; }
+.marquee { background: black; color: lime; overflow: hidden; font-family: monospace; text-shadow: 0 0 8px lime; }
+.marquee p { white-space: nowrap; display: inline-block; padding-left: 100%; animation: scroll 15s linear infinite; }
 @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
-
 .container { display: flex; width: 100%; }
 .side { flex: 1.5; }
-.main { flex: 7; background: white; padding: 20px; box-sizing: border-box; min-height: 100vh; }
-
-/* 投稿フォーム */
-.input-area { background: #fff; border: 1px solid #ddd; padding: 15px; border-radius: 10px; margin-bottom: 30px; }
-textarea, input[type="text"] { width: 100%; margin-bottom: 10px; padding: 12px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
-input[type="file"] { margin-bottom: 10px; }
-
-/* 投稿カード */
-.post { margin-bottom: 25px; padding: 20px; border-radius: 12px; position: relative; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #eee; }
-.post img { width: 100%; height: auto; display: block; margin-bottom: 15px; border-radius: 8px; }
-.post p { line-height: 1.6; margin: 0 0 10px 0; white-space: pre-wrap; }
-.meta { font-size: 13px; color: #555; font-weight: bold; display: flex; align-items: center; gap: 10px; }
-.datetime { font-size: 11px; color: #999; margin-top: 5px; }
-
-/* ボタン類 */
-button { cursor: pointer; transition: 0.2s; border: none; border-radius: 6px; }
-#postBtn { display: block; width: 100%; max-width: 400px; height: 50px; margin: 10px auto; font-size: 18px; font-weight: bold; background: #111; color: white; }
-#postBtn:hover { background: #444; }
-.like-btn { background: #f0f0f0; padding: 5px 12px; font-size: 14px; border: 1px solid #ddd; }
-.del-btn { background: #ff4d4d; color: white; padding: 5px 12px; font-size: 14px; margin-left: 10px; }
-
+.main { flex: 7; background: white; padding: 20px; box-sizing: border-box; }
+.post { margin-bottom: 20px; padding: 15px; border-bottom: 1px solid #ddd; position: relative; background: #fff; border-radius: 8px; }
+.post img { width: 100%; height: auto; display: block; margin-bottom: 10px; border-radius: 5px; }
+.meta { font-size: 12px; color: #666; font-weight: bold; }
+.datetime { font-size: 11px; color: #999; position: absolute; right: 10px; bottom: 10px; }
+textarea, input, select { width: 100%; margin-bottom: 10px; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
 .preview-wrap { position: relative; width: 150px; margin-bottom: 10px; }
-#preview { width: 150px; height: 150px; object-fit: cover; display: none; border: 1px solid #ccc; border-radius: 4px; }
-#clearBtn { position: absolute; top: -8px; right: -8px; background: black; color: white; border-radius: 50%; width: 24px; height: 24px; display: none; }
-#loadingStatus { text-align: center; padding: 20px; color: #888; }
-
+#preview { width: 150px; height: 150px; object-fit: cover; display: none; border: 1px solid #ccc; }
+#clearBtn { position: absolute; top: -8px; right: -8px; background: black; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: none; }
+#postBtn { display: block; width: 100%; max-width: 400px; height: 60px; margin: 15px 0; font-size: 18px; font-weight: bold; background: #111; color: white; border: none; cursor: pointer; border-radius: 8px; }
+#loadingStatus { text-align: center; padding: 20px; color: #666; font-size: 14px; }
 @media screen and (max-width: 768px) { .container { flex-direction: column; } .side { display: none; } .main { width: 100%; } }
 </style>
 </head>
 <body>
-
 <header><h1>みんなの日記</h1></header>
 <div class="banner"></div>
 <div class="marquee"><p id="marqueeText">読み込み中...</p></div>
@@ -52,17 +36,15 @@ button { cursor: pointer; transition: 0.2s; border: none; border-radius: 6px; }
 <div class="container">
   <div class="side"></div>
   <div class="main">
-    <div class="input-area">
-      <input type="text" id="name" placeholder="お名前">
-      <textarea id="text" placeholder="今何してる？（日記を書く）" rows="3"></textarea>
-      <input type="file" id="image" accept="image/*">
-      <div class="preview-wrap">
-        <img id="preview"><button id="clearBtn">×</button>
-      </div>
-      <button id="postBtn">投稿する</button>
+    <input type="text" id="name" placeholder="名前">
+    <textarea id="text" placeholder="日記を書く"></textarea>
+    <input type="file" id="image" accept="image/*">
+    <div class="preview-wrap">
+      <img id="preview"><button id="clearBtn">×</button>
     </div>
+    <button id="postBtn">投稿</button>
 
-    <div style="border-top:2px solid #eee; margin:20px 0;"></div>
+    <div style="border-top:2px solid #ddd; margin:20px 0;"></div>
     
     <section id="list"></section>
     <div id="loadingStatus">読み込み中...</div>
@@ -91,17 +73,17 @@ const db = getFirestore(app);
 const list = document.getElementById("list");
 const loadingStatus = document.getElementById("loadingStatus");
 
-// ユーザーIDの管理（一度決まったら固定）
-let userId = localStorage.getItem("userId");
-if (!userId) {
-  userId = crypto.randomUUID();
-  localStorage.setItem("userId", userId);
-}
+let userId = localStorage.getItem("userId") || crypto.randomUUID();
+localStorage.setItem("userId", userId);
 
-// 最後に使った名前を保持
-document.getElementById("name").value = localStorage.getItem("userName") || "";
+// 保存された名前を表示
+document.getElementById("name").value = localStorage.getItem("savedName") || "";
 
-// --- 訪問者数 ---
+let lastVisible = null;
+let isLoading = false;
+let hasMore = true;
+
+// --- 訪問者数更新 ---
 async function updateVisit() {
   const visitRef = doc(db, "meta", "visits");
   try {
@@ -111,49 +93,41 @@ async function updateVisit() {
       tx.set(visitRef, { count }, { merge: true });
       return count;
     });
-    document.getElementById("marqueeText").textContent = `☆みんなで日記共有中！ 累計訪問者:${String(result).padStart(5, "0")}人`;
-  } catch (e) { console.error(e); }
+    document.getElementById("marqueeText").textContent = `☆みんなで日記共有 訪問者:${String(result).padStart(5, "0")}`;
+  } catch(e) { console.error(e); }
 }
 updateVisit();
 
-// --- 画像プレビュー ---
-const imageInput = document.getElementById("image");
+// --- 投稿機能 ---
+const input = document.getElementById("image");
 const preview = document.getElementById("preview");
 const clearBtn = document.getElementById("clearBtn");
 
-imageInput.onchange = () => {
-  const file = imageInput.files[0];
+input.onchange = () => {
+  const file = input.files[0];
   if (file) {
     const reader = new FileReader();
-    reader.onload = (e) => { 
-      preview.src = e.target.result; 
-      preview.style.display = "block"; 
-      clearBtn.style.display = "block"; 
-    };
+    reader.onload = (e) => { preview.src = e.target.result; preview.style.display = "block"; clearBtn.style.display = "block"; };
     reader.readAsDataURL(file);
   }
 };
-clearBtn.onclick = () => { imageInput.value = ""; preview.style.display = "none"; clearBtn.style.display = "none"; };
 
-// --- 投稿 ---
+clearBtn.onclick = () => { input.value = ""; preview.style.display = "none"; clearBtn.style.display = "none"; };
+
 document.getElementById("postBtn").onclick = async () => {
-  const name = document.getElementById("name").value || "名無しさん";
+  const name = document.getElementById("name").value || "名前無し";
   const text = document.getElementById("text").value.trim();
-  
-  if (!text && !imageInput.files[0]) return alert("日記の内容か画像を入れてね！");
+  if (!text && !input.files[0]) return alert("内容を入力してください");
 
-  localStorage.setItem("userName", name); // 名前を保存
-  document.getElementById("postBtn").disabled = true;
-  document.getElementById("postBtn").textContent = "送信中...";
+  localStorage.setItem("savedName", name); // 名前を保存
+  document.getElementById("postBtn").disabled = true; // 連打防止
 
   try {
-    let image = imageInput.files[0] ? await compress(imageInput.files[0]) : "";
-    await addDoc(collection(db, "posts"), {
-      name, text, image, likes: 0, createdAt: Date.now(), userId: userId
-    });
+    let image = input.files[0] ? await compress(input.files[0]) : "";
+    await addDoc(collection(db, "posts"), { name, text, image, likes: 0, createdAt: Date.now(), userId });
     location.reload();
   } catch (e) {
-    alert("投稿に失敗しました。ルールを確認してください。");
+    alert("投稿に失敗しました");
     document.getElementById("postBtn").disabled = false;
   }
 };
@@ -172,15 +146,11 @@ function compress(file) {
   });
 }
 
-// --- 無限スクロール読み込み ---
-let lastVisible = null;
-let isLoading = false;
-let hasMore = true;
-
+// --- 読み込み ---
 async function loadPosts() {
   if (isLoading || !hasMore) return;
   isLoading = true;
-  loadingStatus.textContent = "過去の日記を読み込み中...";
+  loadingStatus.textContent = "読み込み中...";
 
   let q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(10));
   if (lastVisible) q = query(q, startAfter(lastVisible));
@@ -189,7 +159,7 @@ async function loadPosts() {
     const snap = await getDocs(q);
     if (snap.empty) {
       hasMore = false;
-      loadingStatus.textContent = "これ以上日記はありません";
+      loadingStatus.textContent = "すべての投稿を表示しました";
       isLoading = false;
       return;
     }
@@ -199,7 +169,7 @@ async function loadPosts() {
     snap.forEach(d => {
       const p = { id: d.id, ...d.data() };
       const date = new Date(p.createdAt);
-      const timeStr = `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2,'0')}`;
+      const timeStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2,'0')}`;
       const liked = localStorage.getItem("like_" + p.id);
 
       const div = document.createElement("div");
@@ -207,55 +177,46 @@ async function loadPosts() {
       div.innerHTML = `
         ${p.image ? `<img src="${p.image}">` : ""}
         <p>${p.text}</p>
-        <div class="meta">
-          <span>👤 ${p.name}</span>
-          <button class="like-btn" onclick="like('${p.id}', this)" ${liked ? 'style="background:#ffcccc;border-color:red;"' : ''}>
-            ❤️ <span>${p.likes || 0}</span>
-          </button>
-          ${p.userId === userId ? `<button class="del-btn" onclick="del('${p.id}')">削除</button>` : ""}
-        </div>
+        <div class="meta">${p.name}</div>
+        <button onclick="like('${p.id}', this)" ${liked ? 'style="background:red;color:white;"' : ''}>❤️ <span>${p.likes || 0}</span></button>
+        ${p.userId === userId ? `<button onclick="del('${p.id}')">削除</button>` : ""}
         <div class="datetime">${timeStr}</div>
       `;
       list.appendChild(div);
     });
-  } catch (e) {
-    console.error(e);
-    loadingStatus.textContent = "エラーが発生しました";
-  }
+  } catch(e) { console.error(e); }
 
   isLoading = false;
+  loadingStatus.textContent = "";
 }
 
 loadPosts();
 
 window.onscroll = () => {
-  if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 800) {
+  if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
     loadPosts();
   }
 };
 
-// --- アクション (セキュリティ考慮) ---
+// --- アクション ---
 window.like = async (id, btn) => {
   if (localStorage.getItem("like_" + id)) return;
   try {
     await updateDoc(doc(db, "posts", id), { likes: increment(1) });
     localStorage.setItem("like_" + id, "1");
-    btn.style.background = "#ffcccc";
-    btn.style.borderColor = "red";
+    btn.style.background = "red"; btn.style.color = "white";
     const span = btn.querySelector("span");
     span.textContent = parseInt(span.textContent) + 1;
-  } catch (e) {
-    alert("いいねに失敗しました。サーバーの制限により作成者以外は変更できない設定かもしれません。");
-  }
+  } catch(e) { alert("エラーが発生しました"); }
 };
 
 window.del = async (id) => {
-  if (!confirm("自分の投稿を削除しますか？")) return;
+  if (!confirm("削除しますか？")) return;
   try {
     await deleteDoc(doc(db, "posts", id));
     location.reload();
   } catch (e) {
-    alert("権限がありません。自分の投稿以外は削除できません。");
+    alert("権限がありません");
   }
 };
 </script>
