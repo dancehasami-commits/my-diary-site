@@ -188,27 +188,41 @@ postBtn.onclick = async () => {
   postBtn.disabled = true;
 
   try {
+    // 画像圧縮処理の呼び出し
     let image = input.files[0] ? await compress(input.files[0]) : "";
+    
     await addDoc(collection(db, "posts"), {
       name, text, image, likes: 0, createdAt: Date.now(), 
       userId: currentUid 
     });
     location.reload();
   } catch (e) {
-    alert("失敗しました");
+    console.error(e);
+    alert("投稿に失敗しました。画像が大きすぎる可能性があります。");
     postBtn.disabled = false;
   }
 };
 
+/**
+ * 画像を圧縮する関数（修正ポイント）
+ * 1. 最大幅を400pxに制限（スマホ表示なら十分）
+ * 2. JPEG品質を0.5に下げて容量を大幅カット
+ */
 function compress(file) {
   return new Promise(res => {
     const img = new Image();
     img.onload = () => {
       const c = document.createElement("canvas");
-      const s = Math.min(800 / img.width, 1);
+      // 最大幅を400pxに制限（Firestoreの1MB制限を回避するため）
+      const maxWidth = 400; 
+      const s = Math.min(maxWidth / img.width, 1);
       c.width = img.width * s; c.height = img.height * s;
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      res(c.toDataURL("image/jpeg", 0.6));
+      
+      const ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      
+      // 品質を0.5(50%)に設定してデータ量を軽量化
+      res(c.toDataURL("image/jpeg", 0.5));
     };
     img.src = URL.createObjectURL(file);
   });
